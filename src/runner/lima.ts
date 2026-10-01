@@ -113,7 +113,8 @@ class LimaSandbox implements Sandbox {
     const interpreter = interp === "node" ? "node" : interp === "bash" ? "bash" : "sh";
     const stepKey = req.label.split(":")[0] as string; // labels are "<step id>:<role>"
     const env: Record<string, string> = {
-      PATH: "/usr/local/bin:/usr/bin:/bin",
+      // BusyBox installs ip in /sbin; workloads need the same supported tool for the actual denial probe.
+      PATH: "/usr/local/bin:/usr/bin:/bin:/sbin",
       HOME: `${REMOTE_ROOT}/home`,
       TMPDIR: `${REMOTE_ROOT}/tmp`,
       LC_ALL: "C",
@@ -292,9 +293,15 @@ export class LimaProvider implements RunnerProvider {
 
     // cut internet egress by removing default routes, then prove it; refuse to run if it cannot be proven
     const cut =
+      "command -v ip >/dev/null 2>&1 || exit 40; " +
       "sudo -n ip route del default 2>/dev/null; sudo -n ip -6 route del default 2>/dev/null; " +
-      'if [ -n "$(ip route show default 2>/dev/null)" ] || [ -n "$(ip -6 route show default 2>/dev/null)" ]; then exit 41; fi; ' +
-      "if ip route get 192.0.2.1 >/dev/null 2>&1; then exit 42; fi; exit 0";
+      'v4=$(ip route show default 2>/dev/null) || exit 40; v6=$(ip -6 route show default 2>/dev/null) || exit 40; ' +
+      'if [ -n "$v4" ] || [ -n "$v6" ]; then exit 41; fi; ' +
+      // Supported C-locale status-2 ENETUNREACH diagnostics: observed Alpine iproute2 and legacy BusyBox/musl.
+      // Unknown diagnostics/statuses fail closed; tool compatibility requires actual guest evidence.
+      "if route=$(LC_ALL=C ip route get 192.0.2.1 2>&1); then exit 42; else route_status=$?; fi; " +
+      '[ "$route_status" -eq 2 ] || exit 43; ' +
+      'case "$route" in "RTNETLINK answers: Network unreachable"|"ip: RTNETLINK answers: Network unreachable") ;; *) exit 43 ;; esac; exit 0';
     const fw = await this.ctl(["shell", name, "--", "sh", "-c", cut], SHORT_TIMEOUT_MS);
     if (fw.exit_code !== 0) return fail(`guest internet egress could not be cut and verified (exit ${fw.exit_code ?? "none"}); refusing to run workloads`);
 
@@ -303,13 +310,17 @@ export class LimaProvider implements RunnerProvider {
 
     // run workloads as an unprivileged user without sudo; scripts stay owned by the provisioning user and read-only to it
     const user =
-      `set -e; sudo -n adduser -D -H -h ${REMOTE_ROOT}/home -s /bin/sh ${WORKLOAD_USER}; ` +
+      `set -e; export LC_ALL=C; sudo -n adduser -D -H -h ${REMOTE_ROOT}/home -s /bin/sh ${WORKLOAD_USER}; ` +
       `sudo -n chmod 755 ${REMOTE_ROOT} ${REMOTE_ROOT}/scripts; sudo -n chmod -R a+rX ${REMOTE_ROOT}/scripts; ` +
       `sudo -n chown -R ${WORKLOAD_USER} ${REMOTE_ROOT}/release ${REMOTE_ROOT}/state ${REMOTE_ROOT}/home ${REMOTE_ROOT}/tmp; ` +
       // the workload user must not be root, must not have sudo, and must not be able to change routes
       `[ "$(sudo -n -u ${WORKLOAD_USER} id -u)" != 0 ] || exit 51; ` +
       `if sudo -n -u ${WORKLOAD_USER} sudo -n true >/dev/null 2>&1; then exit 52; fi; ` +
-      `if sudo -n -u ${WORKLOAD_USER} ip route add blackhole 198.51.100.7/32 >/dev/null 2>&1; then exit 53; fi; exit 0`;
+      // A successful privileged control proves the exact operation is supported; a missing tool/syntax error is not denial.
+      "sudo -n ip route add blackhole 198.51.100.7/32; sudo -n ip route del blackhole 198.51.100.7/32; " +
+      `sudo -n -u ${WORKLOAD_USER} ip route show >/dev/null; ` +
+      `if denial=$(sudo -n -u ${WORKLOAD_USER} ip route add blackhole 198.51.100.7/32 2>&1); then exit 53; fi; ` +
+      'case "$denial" in *"Operation not permitted"*|*"Permission denied"*) ;; *) exit 54 ;; esac; exit 0';
     const du = await this.ctl(["shell", name, "--", "sh", "-c", user], SHORT_TIMEOUT_MS);
     if (du.exit_code !== 0) return fail(`could not set up the unprivileged workload user (exit ${du.exit_code ?? "none"}); refusing to run workloads with guest privileges`);
     const facts: Record<string, string> = {

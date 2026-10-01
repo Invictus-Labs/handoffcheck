@@ -83,7 +83,11 @@ describe("lima protocol: a full drill against the fake limactl", () => {
     // every step script and probe is executed as that user, never as the provisioning (sudo-capable) user
     const execs = calls.filter((c) => c.startsWith("shell") && c.includes("hc-run"));
     expect(execs.length).toBeGreaterThanOrEqual(8);
-    for (const c of execs) expect(c, c).toContain("'sudo' '-n' '-u' 'hcrun'");
+    for (const c of execs) {
+      expect(c, c).toContain("'sudo' '-n' '-u' 'hcrun'");
+      // /sbin is part of the real guest PATH, not an inferred route denial from a missing executable.
+      expect(c, c).toContain("'PATH=/usr/local/bin:/usr/bin:/bin:/sbin'");
+    }
     const labels = (await api.getReport(ctx, { runId: result.run_id })).run.labels.join(" | ");
     expect(labels).toMatch(/egress/i);
     expect(labels).toMatch(/NOT ENFORCED/);
@@ -123,10 +127,29 @@ describe("lima protocol: a full drill against the fake limactl", () => {
   });
 });
 
+describe("lima protocol: strict route-query diagnostic contract", () => {
+  for (const faults of [[], ["route_get_busybox"]]) {
+    it(`accepts only status-2 supported unreachable diagnostic (${faults.length ? "legacy BusyBox/musl" : "observed iproute2"})`, async () => {
+      const { lima, result } = await limaDrill(faults);
+      expect(result.steps.every((step) => step.status === "PASS")).toBe(true);
+      expect(result.cleanup.status).toBe("VERIFIED");
+      expect(lima.instances()).toEqual([]);
+    });
+  }
+});
+
 describe("lima protocol: fail-closed behaviour", () => {
   for (const [fault, why] of [
     ["start", "limactl start fails"],
     ["egress", "the egress cut cannot be verified"],
+    ["ip_missing", "a missing guest ip tool is unsupported, never verified denial"],
+    ["route_query", "a failed guest route query is unsupported, never an empty route table"],
+    ["route_get", "an unknown status-2 route-get diagnostic fails closed"],
+    ["route_get_wrong_status", "the observed unreachable diagnostic with the wrong status fails closed"],
+    ["route_get_busybox_wrong_status", "the legacy unreachable diagnostic with the wrong status fails closed"],
+    ["route_get_extra", "extra route-get output fails closed"],
+    ["route_get_success", "a successful route lookup fails closed"],
+    ["route_unsupported", "a route probe error other than permission denial cannot certify privilege restriction"],
     ["user", "the unprivileged workload user cannot be created (P1-4)"],
     ["sudo", "the workload user would still have sudo, so it could re-add the routes (P1-4)"],
     ["copy", "limactl copy fails"]

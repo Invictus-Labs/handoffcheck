@@ -124,8 +124,8 @@ the row stays pending.
 | `local-sandbox` only (`REHEARSAL`, isolation none) or `limactl` absent | BLOCKED for the isolation part; not a PASS |
 | Operator was the builder, AI-assisted or automated | not a human drill; stays PENDING_HUMAN_RECEIPT |
 
-AC-12 is PASS only if every smoke command exited 0 for a person who used only the documentation, and the
-documentation findings were either empty or fixed and re-run by the same or another fresh operator.
+AC-12 is PASS only if every smoke command had its documented expected exit code for a person who used only the documentation. The imported-store `report` must exit 1 (`UNKNOWN`); the README block checks that exit and must itself complete with exit 0. The
+documentation findings must be either empty or fixed and re-run by a fresh operator.
 
 ## 6. Rules that protect the result
 

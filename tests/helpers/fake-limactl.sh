@@ -55,14 +55,40 @@ case "$cmd" in
     script="$3"
     case "$script" in
       # unprivileged workload user setup: faults "user" (cannot create it) and "sudo" (the workload user could still use sudo)
-      *adduser*) fault user && exit 51; fault sudo && exit 52; exit 0 ;;
-      *"ip route"*) fault egress && exit 41; exit 0 ;;
+      *adduser*) fault user && exit 51; fault sudo && exit 52; fault route_unsupported && exit 54; exit 0 ;;
+      *"ip route"*)
+        fault ip_missing && exit 40
+        # Execute the actual provider cut in a subshell with inert protocol ip/sudo functions.
+        # No host route commands execute. Default models observed Alpine iproute2; never live evidence.
+        ip() {
+          case "$*" in
+            "route del default"|"-6 route del default") return 0 ;;
+            "route show default"|"-6 route show default")
+              fault route_query && return 1
+              fault egress && echo "default via synthetic"
+              return 0 ;;
+            "route get 192.0.2.1")
+              fault route_get_success && { echo "synthetic route exists"; return 0; }
+              fault route_get && { echo "unsupported query" >&2; return 2; }
+              fault route_get_extra && { printf '%s\n' "RTNETLINK answers: Network unreachable" "extra error" >&2; return 2; }
+              if fault route_get_busybox || fault route_get_busybox_wrong_status; then
+                echo "ip: RTNETLINK answers: Network unreachable" >&2
+              else echo "RTNETLINK answers: Network unreachable" >&2; fi
+              if fault route_get_wrong_status || fault route_get_busybox_wrong_status; then return 1; fi
+              return 2 ;;
+            *) echo "unsupported protocol ip command" >&2; return 64 ;;
+          esac
+        }
+        sudo() { [ "${1:-}" = "-n" ] && shift; "$@"; }
+        (eval "$script")
+        exit $? ;;
+
     esac
     if [ "${4:-}" = "hc-read" ]; then
       p="${5/\/tmp\/hcsbx/$root}"
       exec sh -c "$script" hc-read "$p" "${6:-0}"
     fi
-    mapped="$(printf '%s' "$script" | sed -e "s#/tmp/hcsbx#$root#g" -e "s#'timeout' '-k' '2' '[0-9]*' ##" -e "s#'sudo' '-n' '-u' 'hcrun' ##" -e "s#PATH=/usr/local/bin:/usr/bin:/bin#PATH=$H/bin:/usr/bin:/bin#")"
+    mapped="$(printf '%s' "$script" | sed -e "s#/tmp/hcsbx#$root#g" -e "s#'timeout' '-k' '2' '[0-9]*' ##" -e "s#'sudo' '-n' '-u' 'hcrun' ##" -e "s#PATH=/usr/local/bin:/usr/bin:/bin:/sbin#PATH=$H/bin:/usr/bin:/bin#")"
     wd="${workdir/\/tmp\/hcsbx/$root}"
     [ -n "$wd" ] && cd "$wd"
     exec sh -c "$mapped"

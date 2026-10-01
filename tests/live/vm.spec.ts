@@ -88,11 +88,13 @@ describe("live VM drills (real Lima instance)", () => {
     // Addresses are computed at run time because the static preflight reads explicit inputs; what matters is what the guest allows.
     const probe = sh(
       [
-        "GW=192.168.$((2+3)).2; PUB=198.51.$((50+50)).9",
+        "PUB=198.51.$((50+50)).9; ROUTE=198.51.$((50+50)).7/32",
+        "export LC_ALL=C; command -v ip >/dev/null 2>&1 || { echo ROUTE_PROBE_UNSUPPORTED; exit 40; }; ip route show >/dev/null 2>&1 || { echo ROUTE_PROBE_UNSUPPORTED; exit 40; }; echo ROUTE_PROBE_TOOL_PRESENT",
         "id -un; id -u",
         "sudo -n true >/dev/null 2>&1 && echo SUDO_OK || echo SUDO_DENIED",
-        'sudo -n ip route add default via "$GW" >/dev/null 2>&1 && echo ROUTE_ADDED || echo ROUTE_ADD_SUDO_DENIED',
-        'ip route add default via "$GW" >/dev/null 2>&1 && echo ROUTE_ADDED || echo ROUTE_ADD_DIRECT_DENIED',
+        'if denial=$(ip route add blackhole "$ROUTE" 2>&1); then echo ROUTE_ADDED; exit 53; fi',
+        'printf "%s\\n" "$denial"',
+        'case "$denial" in *"Operation not permitted"*|*"Permission denied"*) echo ROUTE_ADD_DIRECT_DENIED ;; *) echo ROUTE_PROBE_UNSUPPORTED; exit 54 ;; esac',
         'nc -z -w 3 "$PUB" 53 >/dev/null 2>&1 && echo PUBLIC_CONNECT_OK || echo PUBLIC_CONNECT_FAILED',
         'sh "$HC_RELEASE/bin/notes.sh" install'
       ].join("\n")
@@ -100,8 +102,9 @@ describe("live VM drills (real Lima instance)", () => {
     const { result, ctx: apiCtx } = await liveDrill("unprivileged-workload", { scripts: { "install.sh": probe } });
     expect(stepOf(result, "install").status, JSON.stringify(result.steps)).toBe("PASS");
     const log = (await stepLogs(apiCtx, result.run_id)).filter((l) => l.step_key === "install" && /^# install:script stdout/m.test(l.text)).map((l) => l.text).join("\n");
-    for (const expected of ["hcrun", "SUDO_DENIED", "ROUTE_ADD_SUDO_DENIED", "ROUTE_ADD_DIRECT_DENIED", "PUBLIC_CONNECT_FAILED"]) expect(log, expected).toContain(expected);
-    for (const forbidden of ["SUDO_OK", "ROUTE_ADDED", "PUBLIC_CONNECT_OK"]) expect(log, forbidden).not.toContain(forbidden);
+    for (const expected of ["hcrun", "SUDO_DENIED", "ROUTE_PROBE_TOOL_PRESENT", "ROUTE_ADD_DIRECT_DENIED", "PUBLIC_CONNECT_FAILED"]) expect(log, expected).toContain(expected);
+    for (const forbidden of ["SUDO_OK", "ROUTE_ADDED", "PUBLIC_CONNECT_OK", "ROUTE_PROBE_UNSUPPORTED"]) expect(log, forbidden).not.toContain(forbidden);
+    expect(log).toMatch(/Operation not permitted|Permission denied/);
     expect(log).not.toMatch(/^0$/m); // uid 0 would be root
     expect(result.cleanup.status).toBe("VERIFIED");
     expect(listInstances()).not.toContain(await vmNameOf(apiCtx, result.run_id));
