@@ -1,0 +1,27 @@
+{
+  "name": "handoffcheck",
+  "version": "0.1.0",
+  "description": "Prove another operator can run what you delivered: deterministic, self-hosted handoff drills with versioned evidence bundles.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "bin": { "handoffcheck": "dist/src/cli.js" },
+  "files": ["dist/src", "schemas", "migrations", "templates", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "verify": "bash scripts/verify-quality.sh"
+  },
+  "dependencies": {
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.3",
+    "@vitest/coverage-v8": "5.0.3",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

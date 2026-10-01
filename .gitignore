@@ -1,0 +1,14 @@
+.env
+.env.*
+*.key
+*.pem
+node_modules/
+dist/
+coverage/
+.DS_Store
+evidence/
+*.sqlite
+*.sqlite-journal
+.tmp/
+playwright-report/
+test-results/
