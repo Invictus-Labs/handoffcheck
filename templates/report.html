@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="generator" content="handoffcheck {{tool_version}}">
+<title>{{title}}</title>
+<style>
+:root {
+  --bg: #ffffff; --fg: #1b1f24; --muted: #57606a; --line: #d0d7de; --panel: #f6f8fa;
+  --pass: #116329; --pass-bg: #dafbe1; --fail: #82071e; --fail-bg: #ffebe9;
+  --warn: #6f4500; --warn-bg: #fff8c5; --unk: #3b3f45; --unk-bg: #eaeef2;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117; --fg: #e6edf3; --muted: #9da7b3; --line: #30363d; --panel: #161b22;
+    --pass: #7ee787; --pass-bg: #0f2d1a; --fail: #ffa198; --fail-bg: #3d1214;
+    --warn: #e3b341; --warn-bg: #332a0a; --unk: #c9d1d9; --unk-bg: #21262d;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main, header, footer { max-width: 72rem; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 24px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+h2 { font-size: 1.15rem; margin: 32px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+p { margin: 6px 0; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.88em; }
+.muted { color: var(--muted); }
+.banner { border: 2px solid var(--line); border-radius: 6px; padding: 12px 16px; margin: 16px 0; background: var(--panel); }
+.banner.pass { border-color: var(--pass); background: var(--pass-bg); }
+.banner.fail { border-color: var(--fail); background: var(--fail-bg); }
+.banner.warn { border-color: var(--warn); background: var(--warn-bg); }
+.banner.unknown { border-color: var(--unk); background: var(--unk-bg); }
+.banner .label { font-weight: 700; font-size: 1.1rem; }
+.badge { display: inline-block; padding: 1px 8px; border: 1px solid currentColor; border-radius: 4px; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.02em; white-space: normal; overflow-wrap: anywhere; }
+.badge.pass { color: var(--pass); background: var(--pass-bg); }
+.badge.fail { color: var(--fail); background: var(--fail-bg); }
+.badge.warn { color: var(--warn); background: var(--warn-bg); }
+.badge.unknown { color: var(--unk); background: var(--unk-bg); border-style: dashed; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; min-width: 36rem; }
+caption { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 0.85rem; }
+th, td { text-align: left; vertical-align: top; padding: 6px 12px; border-top: 1px solid var(--line); overflow-wrap: break-word; min-width: 5rem; }
+td code { overflow-wrap: anywhere; }
+th { background: var(--panel); font-weight: 600; border-top: 0; }
+td.empty { color: var(--muted); font-style: italic; }
+dl.kv { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: 4px 16px; margin: 8px 0; }
+dl.kv dt { color: var(--muted); }
+dl.kv dt { overflow-wrap: anywhere; }
+dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+dl.kv code, p code, li code { overflow-wrap: anywhere; word-break: break-all; }
+ul.notes { padding-left: 20px; margin: 6px 0; }
+footer { margin-top: 40px; padding-bottom: 32px; color: var(--muted); font-size: 0.85rem; }
+@media print { body { font-size: 12px; } .scroll { border: 0; } }
+</style>
+</head>
+<body>
+<header>
+<h1>{{heading}}</h1>
+<p class="muted">Static report. Generated {{generated_at}} by handoffcheck {{tool_version}}. No scripts, no network.</p>
+</header>
+<main>
+{{banner}}
+{{error}}
+<section aria-labelledby="h-summary">
+<h2 id="h-summary">Run summary</h2>
+{{summary}}
+</section>
+<section aria-labelledby="h-reasons">
+<h2 id="h-reasons">Verdict reasons</h2>
+<div class="scroll" tabindex="0" role="region" aria-label="Verdict reasons table">
+{{reasons}}
+</div>
+</section>
+<section aria-labelledby="h-preflight">
+<h2 id="h-preflight">Preflight</h2>
+{{preflight}}
+</section>
+<section aria-labelledby="h-steps">
+<h2 id="h-steps">Steps</h2>
+<div class="scroll" tabindex="0" role="region" aria-label="Steps table">
+{{steps}}
+</div>
+</section>
+<section aria-labelledby="h-checks">
+<h2 id="h-checks">Step checks</h2>
+<div class="scroll" tabindex="0" role="region" aria-label="Step checks table">
+{{checks}}
+</div>
+</section>
+<section aria-labelledby="h-interventions">
+<h2 id="h-interventions">Interventions</h2>
+<div class="scroll" tabindex="0" role="region" aria-label="Interventions table">
+{{interventions}}
+</div>
+</section>
+<section aria-labelledby="h-evidence">
+<h2 id="h-evidence">Evidence</h2>
+<div class="scroll" tabindex="0" role="region" aria-label="Evidence table">
+{{evidence}}
+</div>
+</section>
+<section aria-labelledby="h-cleanup">
+<h2 id="h-cleanup">Cleanup</h2>
+{{cleanup}}
+</section>
+<section aria-labelledby="h-history">
+<h2 id="h-history">State history</h2>
+<div class="scroll" tabindex="0" role="region" aria-label="State history table">
+{{history}}
+</div>
+</section>
+<section aria-labelledby="h-notices">
+<h2 id="h-notices">Notices</h2>
+{{notices}}
+</section>
+</main>
+<footer>
+<p>Unknown, stale, partial and unconfirmed states are never shown as success. Any recorded intervention stops a run counting as an unaided handoff. Cleanup that is not verified keeps the run failing.</p>
+</footer>
+</body>
+</html>

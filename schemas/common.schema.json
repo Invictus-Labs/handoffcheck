@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.schema.json",
+  "title": "HandoffCheck shared definitions",
+  "$defs": {
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "utc_timestamp": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$" },
+    "schema_version": { "const": 1 },
+    "ident": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+    "text": { "type": "string", "maxLength": 4000 },
+    "relpath": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "run_state": { "enum": ["CREATED", "PREFLIGHT", "RUNNING", "COMPLETE", "FAILED", "ABORTED", "CLEANUP_VERIFIED", "CLEANUP_UNCONFIRMED"] },
+    "run_outcome": { "enum": ["COMPLETE", "FAILED", "ABORTED"] },
+    "step_action": { "enum": ["install", "restore", "rotate", "recover"] },
+    "step_status": { "enum": ["PASS", "FAIL", "TIMEOUT", "ERROR", "SKIPPED"] },
+    "operator_kind": { "enum": ["human", "ai_assisted", "automated"] },
+    "verdict": { "enum": ["INDEPENDENT_PASS", "ASSISTED", "REHEARSAL", "FAIL", "UNKNOWN", "BLOCKED"] },
+    "isolation": { "enum": ["vm", "none"] },
+    "cleanup_status": { "enum": ["VERIFIED", "UNCONFIRMED"] },
+    "reason_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" },
+    "evidence_kind": { "enum": ["manifest", "preflight_report", "step_receipt", "step_log", "cleanup_receipt", "run_receipt"] },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/operator_kind" },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "builder_ref": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_digest", "runbook_hash", "scenario_version", "manifest_digest", "binding_digest"],
+      "properties": {
+        "artifact_digest": { "$ref": "#/$defs/sha256" },
+        "runbook_hash": { "$ref": "#/$defs/sha256" },
+        "scenario_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "manifest_digest": { "$ref": "#/$defs/sha256" },
+        "binding_digest": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+# restore:script stdout
+{"status":"wiped"}
+{"status":"restored"}

@@ -1,0 +1,578 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-01-01T00:01:17.000Z",
+  "run": {
+    "id": "id-00000000",
+    "workspace_id": "id-00000000",
+    "scenario": {
+      "id": "notes-service-handoff-sh",
+      "version": "1.0.0"
+    },
+    "state": "CLEANUP_UNCONFIRMED",
+    "outcome": "COMPLETE",
+    "provider": "lima",
+    "isolation": "vm",
+    "labels": [
+      "egress: NOT ENFORCED (PARTIAL, best-effort): default routes were removed at provision time and verified, and workloads run as an unprivileged guest user without sudo that cannot re-add them (verified); this is not a firewall: host-gateway reachability and any guest privilege escalation are not covered",
+      "automated rehearsal: harness-driven, not an independent human drill",
+      "fault injected: negative-control run (test only)",
+      "AC-08 human receipt: PENDING_HUMAN_RECEIPT"
+    ],
+    "created_at": "2026-01-01T00:00:04.000Z",
+    "started_at": "2026-01-01T00:00:08.000Z",
+    "finished_at": "2026-01-01T00:01:11.000Z",
+    "imported": false,
+    "fault_injected": true
+  },
+  "binding": {
+    "artifact_digest": "5aca46616adc057b2bf52fae8777e6ff0540ac67f264872ee5f173655a07d11a",
+    "runbook_hash": "a0334c4dd698616326bc00d2755331c712430bfcfb3d331c7c1da5cb70dba7bc",
+    "scenario_version": "1.0.0",
+    "manifest_digest": "b65ae56e3419c67589c9fb7f31fdaac1189cec0769ef2e9c2e9146e1b37d37b1",
+    "binding_digest": "70bb562c02033612f865b574043874499a6c6e0dcc6ec302c4ee02de501c2c92"
+  },
+  "operator": {
+    "kind": "automated",
+    "ref": "qa-harness",
+    "builder_ref": "fixture-builder"
+  },
+  "verdict": {
+    "verdict": "FAIL",
+    "steps_and_cleanup_pass": false,
+    "independent": false,
+    "exit_code": 1,
+    "reasons": [
+      {
+        "code": "CLEANUP_UNCONFIRMED",
+        "message": "cleanup could not be confirmed: resources may have leaked"
+      }
+    ],
+    "human_receipt": "PENDING_HUMAN_RECEIPT",
+    "binding_check": "NOT_CHECKED"
+  },
+  "claimed_verdict": null,
+  "preflight": {
+    "checked": {
+      "artifact_entries": 13,
+      "manifest": true,
+      "runbook": true,
+      "scripts": 9
+    },
+    "findings": [],
+    "isolation": "vm",
+    "provider": "lima",
+    "schema_version": 1,
+    "status": "PASS"
+  },
+  "steps": [
+    {
+      "step_key": "install",
+      "action": "install",
+      "mandatory": true,
+      "status": "PASS",
+      "reason_code": "OK",
+      "deadline_seconds": 180,
+      "started_at": "2026-01-01T00:00:11.000Z",
+      "finished_at": "2026-01-01T00:00:19.000Z",
+      "duration_ms": 8000,
+      "evidence_hash": "ce1423cfc25809438b7859cbba1d902bbb424e1cd16d9c6a5927e775c5648c84",
+      "checks": [
+        {
+          "name": "install script exit 0",
+          "status": "PASS"
+        },
+        {
+          "actual": "passed on attempt 1",
+          "name": "health probe passes within deadline",
+          "status": "PASS"
+        }
+      ],
+      "intervention_ids": []
+    },
+    {
+      "step_key": "restore",
+      "action": "restore",
+      "mandatory": true,
+      "status": "PASS",
+      "reason_code": "OK",
+      "deadline_seconds": 180,
+      "started_at": "2026-01-01T00:00:22.000Z",
+      "finished_at": "2026-01-01T00:00:32.000Z",
+      "duration_ms": 10000,
+      "evidence_hash": "3df84a16e8c2a10cbcea662273a543857a0d08904ad1130eb12ff125a0dd51c5",
+      "checks": [
+        {
+          "detail": "a restore script that merely exits 0 never passes: measured data is verified below",
+          "name": "restore script exit 0",
+          "status": "PASS"
+        },
+        {
+          "name": "measure output is valid",
+          "status": "PASS"
+        },
+        {
+          "actual": "12",
+          "expected": "12",
+          "name": "record count: notes",
+          "status": "PASS"
+        },
+        {
+          "actual": "3",
+          "expected": "3",
+          "name": "record count: blobs",
+          "status": "PASS"
+        },
+        {
+          "actual": "5b2af6b760369819d80eab33c1d8463cf8bc7a93266d77730cb47482aadaf57b",
+          "expected": "5b2af6b760369819d80eab33c1d8463cf8bc7a93266d77730cb47482aadaf57b",
+          "name": "data hash: rec-0001",
+          "status": "PASS"
+        },
+        {
+          "actual": "850ab62ebcc87271cf995a0d25b2ed58a79b32d1b0e611999614bfe7763199a6",
+          "expected": "850ab62ebcc87271cf995a0d25b2ed58a79b32d1b0e611999614bfe7763199a6",
+          "name": "data hash: rec-0003",
+          "status": "PASS"
+        },
+        {
+          "actual": "f6ce785cb9bd11948eb600d7c42ae435a13adab2f9621be9ed0839804dc2704a",
+          "expected": "f6ce785cb9bd11948eb600d7c42ae435a13adab2f9621be9ed0839804dc2704a",
+          "name": "data hash: rec-0007",
+          "status": "PASS"
+        },
+        {
+          "actual": "f4459a9c5171e462b55f1e9e063ca90c7a85d48eac0dd525b9446fa1103b983a",
+          "expected": "f4459a9c5171e462b55f1e9e063ca90c7a85d48eac0dd525b9446fa1103b983a",
+          "name": "data hash: rec-0012",
+          "status": "PASS"
+        },
+        {
+          "actual": "1032454144e731fe132ae33f5698d63c7dee3bd82c41816dba25f99b5a4cd56d",
+          "expected": "1032454144e731fe132ae33f5698d63c7dee3bd82c41816dba25f99b5a4cd56d",
+          "name": "blob hash: state/notes/blobs/1032454144e731fe132ae33f5698d63c7dee3bd82c41816dba25f99b5a4cd56d.bin",
+          "status": "PASS"
+        },
+        {
+          "actual": "7d585564ef201427fd7ec7daaedf925badae1ac4935934712bb201e27647474f",
+          "expected": "7d585564ef201427fd7ec7daaedf925badae1ac4935934712bb201e27647474f",
+          "name": "blob hash: state/notes/blobs/7d585564ef201427fd7ec7daaedf925badae1ac4935934712bb201e27647474f.bin",
+          "status": "PASS"
+        },
+        {
+          "actual": "d6f60f49f34202ab78a950710c6c10f88c99d3928daeea1bf52fdd5b556b728b",
+          "expected": "d6f60f49f34202ab78a950710c6c10f88c99d3928daeea1bf52fdd5b556b728b",
+          "name": "blob hash: state/notes/blobs/d6f60f49f34202ab78a950710c6c10f88c99d3928daeea1bf52fdd5b556b728b.bin",
+          "status": "PASS"
+        }
+      ],
+      "intervention_ids": []
+    },
+    {
+      "step_key": "rotate",
+      "action": "rotate",
+      "mandatory": true,
+      "status": "PASS",
+      "reason_code": "OK",
+      "deadline_seconds": 180,
+      "started_at": "2026-01-01T00:00:35.000Z",
+      "finished_at": "2026-01-01T00:00:49.000Z",
+      "duration_ms": 14000,
+      "evidence_hash": "bd8844f8b629f87ff72eb2f3955fdd82fe64332cabdb4a22a228a3c36fad6f5f",
+      "checks": [
+        {
+          "name": "old credential present before rotation",
+          "status": "PASS"
+        },
+        {
+          "name": "rotate script exit 0",
+          "status": "PASS"
+        },
+        {
+          "name": "new credential present after rotation",
+          "status": "PASS"
+        },
+        {
+          "name": "credential changed",
+          "status": "PASS"
+        },
+        {
+          "actual": "rejected",
+          "expected": "exit 3",
+          "name": "old credential is rejected",
+          "status": "PASS"
+        },
+        {
+          "actual": "accepted",
+          "expected": "exit 0",
+          "name": "new credential is accepted",
+          "status": "PASS"
+        }
+      ],
+      "intervention_ids": []
+    },
+    {
+      "step_key": "recover",
+      "action": "recover",
+      "mandatory": true,
+      "status": "PASS",
+      "reason_code": "OK",
+      "deadline_seconds": 180,
+      "started_at": "2026-01-01T00:00:52.000Z",
+      "finished_at": "2026-01-01T00:01:08.000Z",
+      "duration_ms": 16000,
+      "evidence_hash": "f3ca240536627bb7ecef72651a071cebe537d060a546eea976db772aafe743b7",
+      "checks": [
+        {
+          "actual": "probe failed",
+          "expected": "probe fails",
+          "name": "fault is observed (probe fails after seeding)",
+          "status": "PASS"
+        },
+        {
+          "name": "recovery script exit 0",
+          "status": "PASS"
+        },
+        {
+          "actual": "healthy on probe 1",
+          "name": "service healthy after recovery",
+          "status": "PASS"
+        },
+        {
+          "expected": "<= 60s",
+          "name": "recovery within 60s",
+          "status": "PASS"
+        }
+      ],
+      "intervention_ids": []
+    }
+  ],
+  "interventions": [],
+  "evidence": [
+    {
+      "id": "id-00000000",
+      "kind": "manifest",
+      "step_key": null,
+      "sha256": "84bcef1315bd0dd5cc13a8a293feaffe515ce9a9c1e268375df7e40e40e43361",
+      "media_type": "application/json",
+      "size_bytes": 2194,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "preflight_report",
+      "step_key": null,
+      "sha256": "f718ff2a2e34ffe42f1be39d66cf8727986394a9cc4c107a6ab3cda566b58f84",
+      "media_type": "application/json",
+      "size_bytes": 162,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "run_receipt",
+      "step_key": null,
+      "sha256": "8c142f06f337aeb9c280bcf29e3e4733f1add99a7eb1b68a19e02c9db8dbc66e",
+      "media_type": "application/json",
+      "size_bytes": 616,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "install",
+      "sha256": "7126390802c02e0075a5f13e9c053858c947078b8d304b5858629622da745982",
+      "media_type": "text/plain",
+      "size_bytes": 65,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "install",
+      "sha256": "5ee38fba5dc2874224ca25de53bb33ebc2753601468d2fb930dbaa1294abbedb",
+      "media_type": "text/plain",
+      "size_bytes": 24,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "install",
+      "sha256": "017d60d10b3e1d59cf68fe1ea88fadffe2948c4800886043b89a0cb23a01c321",
+      "media_type": "text/plain",
+      "size_bytes": 52,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "install",
+      "sha256": "0091575c50999fc9c00ae018d189e0636b49493b4c13da47414b09869bcaefd2",
+      "media_type": "text/plain",
+      "size_bytes": 23,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_receipt",
+      "step_key": "install",
+      "sha256": "ce1423cfc25809438b7859cbba1d902bbb424e1cd16d9c6a5927e775c5648c84",
+      "media_type": "application/json",
+      "size_bytes": 1264,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "restore",
+      "sha256": "6d247b81c869089f7c04f2b8af5833749371bb4e00da0de1e96b544bf2e4a9f8",
+      "media_type": "text/plain",
+      "size_bytes": 65,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "restore",
+      "sha256": "ec269b14fe93bf3f07e7d52c69c2a6f1afac649a79f1de7e04ed1205305c9029",
+      "media_type": "text/plain",
+      "size_bytes": 24,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "restore",
+      "sha256": "e194ce36cb699447fb12ff68be284187c3eec667c7603871ed8aa08c05ee9cd7",
+      "media_type": "text/plain",
+      "size_bytes": 1018,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "restore",
+      "sha256": "d73a04737c1d92b54b2257a20a3d7fbb7e4786c16fdc8633806eaabfb2e5324a",
+      "media_type": "text/plain",
+      "size_bytes": 25,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_receipt",
+      "step_key": "restore",
+      "sha256": "3df84a16e8c2a10cbcea662273a543857a0d08904ad1130eb12ff125a0dd51c5",
+      "media_type": "application/json",
+      "size_bytes": 3116,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "rotate",
+      "sha256": "a4109a096b575556fe800f7cd73920e67d4e10da1fe257c30c8e09659c07e468",
+      "media_type": "text/plain",
+      "size_bytes": 59,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "rotate",
+      "sha256": "be1c6aa93803627cdcc005b21941222602e15be65cf8865c86f18bdd9ef313ad",
+      "media_type": "text/plain",
+      "size_bytes": 23,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "rotate",
+      "sha256": "a57687324599d170888c515a092f3df4b28f278370db3b7cedd353758126c14d",
+      "media_type": "text/plain",
+      "size_bytes": 48,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "rotate",
+      "sha256": "54c9acd9238c980c7b3008cc98cf2565229eae4bb56f4a1daa099aef544fae69",
+      "media_type": "text/plain",
+      "size_bytes": 26,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "rotate",
+      "sha256": "b519129dd6a8d7a93d1782fa820d5c011eb008ee87664d9c157e1f5d1e338a40",
+      "media_type": "text/plain",
+      "size_bytes": 48,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "rotate",
+      "sha256": "649b8e684ed3d6a420ede38dc67208acdb1058067f71c3039cc20f768e4d8a19",
+      "media_type": "text/plain",
+      "size_bytes": 26,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_receipt",
+      "step_key": "rotate",
+      "sha256": "bd8844f8b629f87ff72eb2f3955fdd82fe64332cabdb4a22a228a3c36fad6f5f",
+      "media_type": "application/json",
+      "size_bytes": 1869,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "d895005fd08277a94bc74d2d722ebc7799a1ae2208ef4626833fa394a6261ab3",
+      "media_type": "text/plain",
+      "size_bytes": 56,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "8c87f7a186b98bebb4b915e03439f1216183c9600eac568ceb762dec4c80b478",
+      "media_type": "text/plain",
+      "size_bytes": 28,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "2b6ef65b735c4351367ba9a4191c8c6281bbb1b3a2fbe81bf0b99128a427f4ad",
+      "media_type": "text/plain",
+      "size_bytes": 65,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "688fab0e42f266ba2f9551b11e2e7439259cb7d0bbceed0dd34100dd4a7b42aa",
+      "media_type": "text/plain",
+      "size_bytes": 35,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "b4d8eb14edafef47a4c95e68f7e563cd57f075b5322d34a757c43f64bc6662eb",
+      "media_type": "text/plain",
+      "size_bytes": 65,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "f5ee52d2d4d6a142c8077649f1bc6cd937a3f3a890dd372cb7bedfc6dd290612",
+      "media_type": "text/plain",
+      "size_bytes": 26,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "3fee51b8c86812f65a96d68728726ea36feb14cf6a3f9cef2e8fcc34b78235e1",
+      "media_type": "text/plain",
+      "size_bytes": 66,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_log",
+      "step_key": "recover",
+      "sha256": "a5860c5490f3add14270f9cbb9f1eb9f0635c5bb535577fe4c55e8c32078e5a8",
+      "media_type": "text/plain",
+      "size_bytes": 38,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "step_receipt",
+      "step_key": "recover",
+      "sha256": "f3ca240536627bb7ecef72651a071cebe537d060a546eea976db772aafe743b7",
+      "media_type": "application/json",
+      "size_bytes": 2168,
+      "redacted": true
+    },
+    {
+      "id": "id-00000000",
+      "kind": "cleanup_receipt",
+      "step_key": null,
+      "sha256": "52bf3d60610dbc1232498742d6452288c9939b530bdda6adca1ba94e080d7614",
+      "media_type": "application/json",
+      "size_bytes": 511,
+      "redacted": true
+    }
+  ],
+  "cleanup": {
+    "status": "UNCONFIRMED",
+    "verified_at": "2026-01-01T00:01:13.000Z",
+    "resources": [
+      {
+        "kind": "vm-instance",
+        "id": "vm-instance:hc-00000000-2c7beb",
+        "state": "leaked",
+        "detail": "VM instance still exists"
+      },
+      {
+        "kind": "directory",
+        "id": "host-staging:hc-00000000-2c7beb",
+        "state": "leaked",
+        "detail": "host staging directory still exists"
+      }
+    ],
+    "note": null
+  },
+  "state_history": [
+    {
+      "seq": 0,
+      "from_state": null,
+      "to_state": "CREATED",
+      "reason": null,
+      "at": "2026-01-01T00:00:04.000Z"
+    },
+    {
+      "seq": 1,
+      "from_state": "CREATED",
+      "to_state": "PREFLIGHT",
+      "reason": null,
+      "at": "2026-01-01T00:00:06.000Z"
+    },
+    {
+      "seq": 2,
+      "from_state": "PREFLIGHT",
+      "to_state": "RUNNING",
+      "reason": null,
+      "at": "2026-01-01T00:00:09.000Z"
+    },
+    {
+      "seq": 3,
+      "from_state": "RUNNING",
+      "to_state": "COMPLETE",
+      "reason": "OK",
+      "at": "2026-01-01T00:01:12.000Z"
+    },
+    {
+      "seq": 4,
+      "from_state": "COMPLETE",
+      "to_state": "CLEANUP_UNCONFIRMED",
+      "reason": "UNCONFIRMED",
+      "at": "2026-01-01T00:01:15.000Z"
+    }
+  ]
+}

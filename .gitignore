@@ -6,7 +6,7 @@ node_modules/
 dist/
 coverage/
 .DS_Store
-evidence/
+/evidence/
 *.sqlite
 *.sqlite-journal
 .tmp/

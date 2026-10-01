@@ -1,0 +1,2 @@
+# recover:seed-fault stdout
+{"status":"worker_crashed"}

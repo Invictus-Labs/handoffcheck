@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "report.schema.json",
+  "title": "Report data (JSON report; the HTML report renders exactly this)",
+  "description": "All strings are redacted plain text; renderers must still HTML-escape them. Resource locators are never included.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "run", "binding", "operator", "verdict", "preflight", "steps", "interventions", "evidence", "cleanup", "state_history"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "generated_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "workspace_id", "scenario", "state", "outcome", "provider", "isolation", "labels", "created_at", "started_at", "finished_at", "imported", "fault_injected"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "workspace_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "scenario": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version"],
+          "properties": { "id": { "type": "string" }, "version": { "type": "string" } }
+        },
+        "state": { "$ref": "common.schema.json#/$defs/run_state" },
+        "outcome": { "oneOf": [{ "$ref": "common.schema.json#/$defs/run_outcome" }, { "type": "null" }] },
+        "provider": { "type": "string" },
+        "isolation": { "$ref": "common.schema.json#/$defs/isolation" },
+        "labels": { "type": "array", "items": { "type": "string", "maxLength": 200 } },
+        "created_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+        "started_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+        "finished_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+        "imported": { "type": "boolean" },
+        "fault_injected": { "type": "boolean" }
+      }
+    },
+    "binding": { "$ref": "common.schema.json#/$defs/binding" },
+    "operator": { "$ref": "common.schema.json#/$defs/operator" },
+    "verdict": { "$ref": "evidence-bundle.schema.json#/$defs/verdict_snapshot" },
+    "claimed_verdict": {
+      "description": "Imported runs only: the verdict recorded inside the bundle. Display-only and unauthenticated; never an acceptance.",
+      "oneOf": [{ "type": "null" }, { "$ref": "evidence-bundle.schema.json#/$defs/verdict_snapshot" }]
+    },
+    "preflight": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "status", "provider", "isolation", "findings", "checked"],
+          "properties": {
+            "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+            "status": { "enum": ["PASS", "REJECTED"] },
+            "provider": { "type": "string" },
+            "isolation": { "$ref": "common.schema.json#/$defs/isolation" },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["code", "severity", "location", "message"],
+                "properties": {
+                  "code": { "type": "string" },
+                  "severity": { "enum": ["reject", "warn"] },
+                  "location": { "type": "string", "maxLength": 512 },
+                  "message": { "type": "string", "maxLength": 1000 },
+                  "kind": { "type": "string", "maxLength": 64 }
+                }
+              }
+            },
+            "checked": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["manifest", "scripts", "artifact_entries", "runbook"],
+              "properties": {
+                "manifest": { "type": "boolean" },
+                "scripts": { "type": "integer", "minimum": 0 },
+                "artifact_entries": { "type": "integer", "minimum": 0 },
+                "runbook": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_key", "action", "mandatory", "status", "reason_code", "deadline_seconds", "started_at", "finished_at", "duration_ms", "evidence_hash", "checks", "intervention_ids"],
+        "properties": {
+          "step_key": { "type": "string" },
+          "action": { "$ref": "common.schema.json#/$defs/step_action" },
+          "mandatory": { "type": "boolean" },
+          "status": { "$ref": "common.schema.json#/$defs/step_status" },
+          "reason_code": { "$ref": "common.schema.json#/$defs/reason_code" },
+          "deadline_seconds": { "type": "integer" },
+          "started_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+          "finished_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+          "duration_ms": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+          "evidence_hash": { "oneOf": [{ "$ref": "common.schema.json#/$defs/sha256" }, { "type": "null" }] },
+          "checks": { "type": "array", "items": { "type": "object" } },
+          "intervention_ids": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/uuid" } }
+        }
+      }
+    },
+    "interventions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "actor_ref", "reason", "occurred_at", "step_key"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/uuid" },
+          "actor_ref": { "type": "string" },
+          "reason": { "type": "string" },
+          "occurred_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+          "step_key": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "step_key", "sha256", "media_type", "size_bytes", "redacted"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/uuid" },
+          "kind": { "$ref": "common.schema.json#/$defs/evidence_kind" },
+          "step_key": { "type": ["string", "null"] },
+          "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+          "media_type": { "type": "string" },
+          "size_bytes": { "type": "integer", "minimum": 0 },
+          "redacted": { "type": "boolean" }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "verified_at", "resources", "note"],
+      "properties": {
+        "status": { "enum": ["VERIFIED", "UNCONFIRMED", "MISSING"] },
+        "verified_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "id", "state"],
+            "properties": {
+              "kind": { "enum": ["directory", "process", "process-scan", "vm-instance"] },
+              "id": { "type": "string" },
+              "state": { "enum": ["removed", "leaked", "unknown"] },
+              "detail": { "type": "string" }
+            }
+          }
+        },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "state_history": { "type": "array", "items": { "type": "object" } }
+  }
+}

@@ -1,0 +1,8 @@
+# install:script stdout
+hcrun
+1000
+SUDO_DENIED
+ROUTE_ADD_SUDO_DENIED
+ROUTE_ADD_DIRECT_DENIED
+PUBLIC_CONNECT_FAILED
+{"status":"installed","version":"1.0.0"}

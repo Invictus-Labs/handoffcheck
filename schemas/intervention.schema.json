@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "intervention.schema.json",
+  "title": "Builder/operator intervention record (append-only)",
+  "description": "Signed with an HMAC under the local store key: local tamper evidence only, not third-party attestation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "drill_id", "actor_ref", "reason", "occurred_at", "step_key", "signature", "attestation"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "drill_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "actor_ref": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "occurred_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+    "step_key": { "type": ["string", "null"], "maxLength": 64 },
+    "signature": { "$ref": "common.schema.json#/$defs/sha256" },
+    "attestation": { "const": "local-identity-unsigned-by-third-party" }
+  }
+}

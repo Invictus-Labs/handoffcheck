@@ -1,0 +1,2 @@
+# recover:probe-after-fault stdout
+{"status":"worker_unhealthy"}
