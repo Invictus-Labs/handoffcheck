@@ -1,0 +1,2 @@
+# rotate:script stdout
+{"status":"rotated","generation":2}

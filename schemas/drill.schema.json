@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "drill.schema.json",
+  "title": "Drill (run) record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "workspace_id", "scenario_id", "scenario_version", "artifact_digest", "runbook_hash",
+    "manifest_digest", "binding_digest", "operator_ref", "operator_kind", "builder_ref", "provider", "isolation",
+    "state", "outcome", "outcome_reason", "created_at", "started_at", "finished_at", "retain_until", "imported", "fault_injected"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "workspace_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "scenario_id": { "$ref": "common.schema.json#/$defs/ident" },
+    "scenario_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "artifact_digest": { "$ref": "common.schema.json#/$defs/sha256" },
+    "runbook_hash": { "$ref": "common.schema.json#/$defs/sha256" },
+    "manifest_digest": { "$ref": "common.schema.json#/$defs/sha256" },
+    "binding_digest": { "$ref": "common.schema.json#/$defs/sha256" },
+    "operator_ref": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "operator_kind": { "$ref": "common.schema.json#/$defs/operator_kind" },
+    "builder_ref": { "type": ["string", "null"], "maxLength": 128 },
+    "provider": { "type": "string", "pattern": "^[a-z0-9-]{1,32}$" },
+    "isolation": { "$ref": "common.schema.json#/$defs/isolation" },
+    "state": { "$ref": "common.schema.json#/$defs/run_state" },
+    "outcome": { "oneOf": [{ "$ref": "common.schema.json#/$defs/run_outcome" }, { "type": "null" }] },
+    "outcome_reason": { "oneOf": [{ "$ref": "common.schema.json#/$defs/reason_code" }, { "type": "null" }] },
+    "created_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+    "started_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+    "finished_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+    "retain_until": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+    "imported": { "type": "boolean" },
+    "planned_steps": { "type": "integer", "minimum": 0, "maximum": 50 },
+    "fault_injected": { "type": "boolean" }
+  }
+}

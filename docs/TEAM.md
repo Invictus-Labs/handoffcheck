@@ -6,7 +6,7 @@ The definition of done is `docs/DOD.md` (PRD sections 5, 5b, 5c, verbatim). The 
 
 | Role (agent name) | Exclusive territory |
 | --- | --- |
-| Domain / backend builder (`hc-domain`) | `src/domain/**`, `src/store/**`, `src/evidence/**`, `src/runner/**`, `src/security/**`, `src/api.ts`, `schemas/**`, `migrations/**` |
+| Domain / backend builder (`hc-domain`) | `src/domain/**`, `src/store/**`, `src/evidence/**`, `src/runner/**`, `src/security/**`, `src/api.ts`, `schemas/**`, `migrations/**`, `docs/DESIGN.md` |
 | CLI / UI / integration builder (`hc-cli`) | `src/cli.ts`, `src/cli/**`, `src/report/**`, `src/adapters/**`, `templates/**`, `docs/CLI.md`, `docs/ADAPTERS.md` |
 | Independent QA (`hc-qa`) | `tests/**`, `fixtures/**`, `scripts/**`, `README.md`, `Dockerfile`, `docs/qa/**`, `docs/RUNBOOK.md`, `docs/HUMAN-DRILL.md`, `docs/DEPENDENCY-LICENSES.md`, `docs/OPERATIONS.md` |
 | Coordinator (session owner) | `package.json`, `package-lock.json`, `tsconfig.json`, `vitest.config.ts`, `.gitignore`, `LICENSE`, `CLAUDE.md`, `lessons.md`, `docs/TEAM.md`, `docs/DOD.md`, `docs/prd/**` |

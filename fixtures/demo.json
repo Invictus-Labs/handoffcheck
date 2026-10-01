@@ -1,0 +1,80 @@
+{
+  "fixture_version": "1.0.0",
+  "description": "Synthetic, deterministic fixture data for the HandoffCheck QA suite. Everything here is fake: no real credentials, hosts or customer data. A test (tests/units/fixtures.spec.ts) fails if this file drifts from the fixtures.",
+  "clock": {
+    "start_utc": "2026-01-01T00:00:00.000Z",
+    "step_ms": 1000,
+    "tar_mtime_epoch": 1767225600
+  },
+  "ids": {
+    "sequential_prefix": "0x4a",
+    "note": "api.sequentialIds(0x4a) gives 00000000-004a-4000-8000-<counter>"
+  },
+  "planted_secrets": [
+    "HCFAKE_OLD_5B1E0C7A9D3F4E28",
+    "HCFAKE_NEW_C8A2D6F0B4E17359"
+  ],
+  "production_credential_decoys": "assembled at run time from fragments in tests/helpers/decoys.ts so no credential-shaped literal is committed",
+  "dataset": {
+    "record_count": 12,
+    "blob_count": 3,
+    "selected_record_sha256": {
+      "rec-0001": "5b2af6b760369819d80eab33c1d8463cf8bc7a93266d77730cb47482aadaf57b",
+      "rec-0003": "850ab62ebcc87271cf995a0d25b2ed58a79b32d1b0e611999614bfe7763199a6",
+      "rec-0007": "f6ce785cb9bd11948eb600d7c42ae435a13adab2f9621be9ed0839804dc2704a",
+      "rec-0012": "f4459a9c5171e462b55f1e9e063ca90c7a85d48eac0dd525b9446fa1103b983a"
+    },
+    "blob_sha256": [
+      "1032454144e731fe132ae33f5698d63c7dee3bd82c41816dba25f99b5a4cd56d",
+      "7d585564ef201427fd7ec7daaedf925badae1ac4935934712bb201e27647474f",
+      "d6f60f49f34202ab78a950710c6c10f88c99d3928daeea1bf52fdd5b556b728b"
+    ],
+    "queue_jobs": 5,
+    "poison_job": "job-0003"
+  },
+  "releases": {
+    "node": {
+      "dir": "fixtures/release",
+      "drill_dir": "fixtures/drill",
+      "provider": "local-sandbox",
+      "artifact_sha256": "821794d94d315fc2ec990d80006c5772b1a621cf4c00433e742ca2b312c59ce4",
+      "files": 13,
+      "runtime": "node (>=22.13) inside the sandbox"
+    },
+    "sh": {
+      "dir": "fixtures/release-sh + shared seed/backup/config from fixtures/release",
+      "drill_dir": "fixtures/drill-sh",
+      "provider": "lima",
+      "artifact_sha256": "5aca46616adc057b2bf52fae8777e6ff0540ac67f264872ee5f173655a07d11a",
+      "files": 13,
+      "runtime": "POSIX sh only (Alpine/busybox guest)"
+    }
+  },
+  "expected": {
+    "clean_node_drill": {
+      "verdict": "REHEARSAL",
+      "exit_code": 0,
+      "isolation": "none",
+      "steps": [
+        "install:PASS",
+        "restore:PASS",
+        "rotate:PASS",
+        "recover:PASS"
+      ],
+      "cleanup": "VERIFIED"
+    },
+    "clean_sh_vm_drill": {
+      "verdict": "REHEARSAL",
+      "exit_code": 0,
+      "isolation": "vm",
+      "steps": [
+        "install:PASS",
+        "restore:PASS",
+        "rotate:PASS",
+        "recover:PASS"
+      ],
+      "cleanup": "VERIFIED",
+      "note": "needs a real limactl; see docs/qa/live"
+    }
+  }
+}

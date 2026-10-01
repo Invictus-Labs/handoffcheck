@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "error.schema.json",
+  "title": "Error body",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["error"],
+  "properties": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "request_id"],
+      "properties": {
+        "code": {
+          "enum": [
+            "BAD_REQUEST", "NOT_FOUND", "CONFLICT", "PAYLOAD_TOO_LARGE", "SCHEMA_INVALID", "POLICY_REJECTED",
+            "UNSUPPORTED_VERSION", "BUNDLE_CORRUPT", "PROVIDER_UNAVAILABLE", "CONNECTOR_DISCONNECTED",
+            "INSUFFICIENT_CAPACITY", "STORE_SCHEMA_UNSUPPORTED", "INTERNAL"
+          ]
+        },
+        "message": { "type": "string", "maxLength": 2000 },
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    }
+  }
+}
