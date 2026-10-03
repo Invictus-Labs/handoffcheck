@@ -231,6 +231,15 @@ tool works on this machine; it is **not** the independent human drill (see `docs
   trust. The built-in `demo` runs only its embedded synthetic scenario and needs no flag.
 - Network-destination checks are static detection of explicit inputs (URLs, host:port, IP literals, common
   tool arguments), not a network sandbox. Production-credential detection is pattern based.
+- Declare every planted credential value in `synthetic_secrets` before the drill begins, including old/new
+  rotation values and any value a prior install/restore script could print or an operator could type. Use only
+  planted fakes bearing the `HCFAKE` marker; production credentials are forbidden. The initial manifest literals
+  are available to every evidence writer from run creation. Additional rotation-file values are learned only
+  when the rotate step reads them: that protects its deferred log and later writes, but does not retroactively
+  sanitize previously persisted install/restore evidence. Unknown or undeclared arbitrary values printed earlier
+  are not guaranteed redacted. If any planted value was undeclared, treat the receipt as unsuitable to share,
+  restrict access to existing evidence, correct the manifest and repeat in a fresh owned synthetic environment.
+  Pattern detection and later credential learning do not replace this declaration requirement or prove secrecy.
 - An intervention record is a local identity attribution (an HMAC under a local key), not a third-party
   attestation. A human drill can be biased by prior knowledge of the service.
 - Not built: multi-user authorization, a daemon or HTTP API, hosted operation. CLI products trust the local
