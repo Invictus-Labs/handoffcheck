@@ -86,6 +86,8 @@ interface StepCtx {
   executions: ExecEntry[];
   /** Log storage is deferred to the end of the step so literals learned during the step (new credentials) redact all of it. */
   pending: (() => void)[];
+  /** Rotation output is withheld until its declared new credential has been safely learned. */
+  withholdOutput?: boolean;
 }
 
 const remaining = (sc: StepCtx): number => Math.floor(sc.deadlineAt - performance.now());
@@ -120,8 +122,11 @@ async function execDeferred(
   });
   const duration = opts.poll ? 0 : sc.ec.clock.monotonicMs() - t0;
   const store = (): void => {
-    const stdoutSha = sc.ev.putText("step_log", sc.step.id, Buffer.concat([Buffer.from(`# ${label} stdout\n`), res.stdout]), res.truncated).sha256;
-    const stderrSha = sc.ev.putText("step_log", sc.step.id, Buffer.concat([Buffer.from(`# ${label} stderr\n`), res.stderr]), res.truncated).sha256;
+    const withheld = Buffer.from("[OUTPUT WITHHELD: rotation credential unavailable]\n");
+    const stdout = sc.withholdOutput ? withheld : res.stdout;
+    const stderr = sc.withholdOutput ? withheld : res.stderr;
+    const stdoutSha = sc.ev.putText("step_log", sc.step.id, Buffer.concat([Buffer.from(`# ${label} stdout\n`), stdout]), res.truncated).sha256;
+    const stderrSha = sc.ev.putText("step_log", sc.step.id, Buffer.concat([Buffer.from(`# ${label} stderr\n`), stderr]), res.truncated).sha256;
     sc.executions.push({
       label,
       script_sha256: (sc.loaded.scripts.get(ref.path) as { sha256: string | null }).sha256,
@@ -284,7 +289,13 @@ async function runRotate(sc: StepCtx, step: RotateStep, wall: () => boolean): Pr
   }
   sc.checks.push({ name: "old credential present before rotation", status: "PASS" });
 
+  // Even a failed/timed-out script may have written and printed a future credential.
+  // Keep output fail-closed on exceptions or an unavailable declared file.
+  sc.withholdOutput = true;
   const res = await exec(sc, step.script, "script");
+  let newCred: string | null = null;
+  try { newCred = await readCred(step.credentials.new_file); } catch { /* keep output withheld */ }
+  if (newCred !== null) sc.withholdOutput = false;
   const bad = execOutcome(res, "rotate script", sc, wall);
   if (bad) {
     sc.checks.push({ name: "rotate script exit 0", status: "FAIL", actual: clip(bad.reason) });
@@ -292,7 +303,6 @@ async function runRotate(sc: StepCtx, step: RotateStep, wall: () => boolean): Pr
   }
   sc.checks.push({ name: "rotate script exit 0", status: "PASS" });
 
-  const newCred = await readCred(step.credentials.new_file);
   if (newCred === null) {
     sc.checks.push({ name: "new credential present after rotation", status: "FAIL" });
     return { status: "FAIL", reason_code: "ROTATION_NOT_ROTATED", reason: "the new credential file is missing or empty after rotation" };
