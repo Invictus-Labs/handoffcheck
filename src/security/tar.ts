@@ -1,6 +1,6 @@
 import { gunzipSync } from "node:zlib";
 import type { ArtifactEntry } from "../domain/types.js";
-import { linkTargetSyntaxOk, normalizeRelativePath, resolveLinkInside } from "./paths.js";
+import { foldPathKey, linkTargetSyntaxOk, normalizeRelativePath, resolveLinkInside } from "./paths.js";
 
 export type TarErrorCode = "TRUNCATED" | "UNSAFE" | "LIMIT" | "FORMAT" | "TRAILING_DATA";
 
@@ -164,8 +164,10 @@ export function readTar(input: Buffer, limits: TarLimits): ArtifactEntry[] {
     if (isDir && /^(\.\/?)+$/.test(name.replace(/\/+$/, "/"))) continue;
     const clean = normalizeRelativePath(isDir ? name.replace(/\/+$/, "") : name);
     if (clean === null) throw new TarError("UNSAFE", `unsafe entry path ${JSON.stringify(name.slice(0, 80))}`);
-    if (seen.has(clean)) throw new TarError("UNSAFE", `duplicate entry ${JSON.stringify(clean)}`);
-    seen.add(clean);
+    // a case- or normalization-insensitive filesystem (default macOS APFS) maps names that fold equal to one file
+    const key = foldPathKey(clean);
+    if (seen.has(key)) throw new TarError("UNSAFE", `duplicate entry ${JSON.stringify(clean)} (paths are compared case- and normalization-insensitively)`);
+    seen.add(key);
     const mode = readOctal(input, headerStart + 100, 8) & 0o777;
 
     if (typeflag === "0" || typeflag === "\0") {
@@ -186,14 +188,15 @@ export function readTar(input: Buffer, limits: TarLimits): ArtifactEntry[] {
 
   if (!endSeen) throw new TarError("TRUNCATED", "archive has no end-of-archive marker");
   // physical containment: resolve every link through the complete link map so chains cannot climb out of the root
-  const linkMap = new Map(entries.filter((e) => e.type === "symlink").map((e) => [e.path, e.linkname as string]));
-  for (const [path, target] of linkMap) {
-    if (resolveLinkInside(path, target, linkMap) === null) throw new TarError("UNSAFE", `symlink ${JSON.stringify(path)} points outside the archive root (physically resolved)`);
+  const linkMap = new Map(entries.filter((e) => e.type === "symlink").map((e) => [foldPathKey(e.path), e.linkname as string]));
+  for (const e of entries.filter((x) => x.type === "symlink")) {
+    const path = e.path;
+    if (resolveLinkInside(path, e.linkname as string, linkMap) === null) throw new TarError("UNSAFE", `symlink ${JSON.stringify(path)} points outside the archive root (physically resolved)`);
   }
   // symlink chains must not let a later file be written through an earlier symlink
-  const links = new Set(entries.filter((e) => e.type === "symlink").map((e) => e.path));
+  const links = new Set(entries.filter((e) => e.type === "symlink").map((e) => foldPathKey(e.path)));
   for (const e of entries) {
-    const parts = e.path.split("/");
+    const parts = foldPathKey(e.path).split("/");
     for (let i = 1; i < parts.length; i++) {
       if (links.has(parts.slice(0, i).join("/"))) throw new TarError("UNSAFE", `entry ${JSON.stringify(e.path)} is written through a symlink`);
     }

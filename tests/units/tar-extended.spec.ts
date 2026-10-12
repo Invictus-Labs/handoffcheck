@@ -110,3 +110,39 @@ describe("tar entry kinds and numeric fields", () => {
     expect(readTar(buildTar([]), limits)).toEqual([]);
   });
 });
+
+describe("case- and normalization-insensitive filesystems (default macOS APFS)", () => {
+  it("negative control (P0): a write through a symlink named with different case is rejected (`L` link, `l/PWNED` file)", () => {
+    const tar = buildTar([
+      { path: "A/", type: "5" },
+      { path: "A/up", type: "2", linkname: ".." },
+      { path: "L", type: "2", linkname: "a/up/../.." },
+      { path: "l/PWNED", data: "x" }
+    ]);
+    expect(code(() => readTar(tar, limits))).toBe("UNSAFE");
+  });
+
+  it("negative control (P1): a link chain that only escapes when `a` resolves to `A` is rejected as physically outside the root", () => {
+    const tar = buildTar([
+      { path: "A/", type: "5" },
+      { path: "A/up", type: "2", linkname: ".." },
+      { path: "s", type: "2", linkname: "a/up/a/up/../../../.." }
+    ]);
+    expect(() => readTar(tar, limits)).toThrow(/outside the archive root/);
+  });
+
+  it("negative control: entries whose paths collide after case folding or Unicode normalization are duplicates", () => {
+    expect(code(() => readTar(buildTar([{ path: "Readme", data: "a" }, { path: "README", data: "b" }]), limits))).toBe("UNSAFE");
+    expect(code(() => readTar(buildTar([{ path: "café", data: "a" }, { path: "café", data: "b" }]), limits))).toBe("UNSAFE");
+  });
+
+  it("still accepts an in-root link chain whose case matches", () => {
+    const tar = buildTar([
+      { path: "A/", type: "5" },
+      { path: "A/up", type: "2", linkname: ".." },
+      { path: "L", type: "2", linkname: "A/up/A" },
+      { path: "A/f.txt", data: "x" }
+    ]);
+    expect(readTar(tar, limits).map((e) => e.path)).toEqual(["A", "A/up", "L", "A/f.txt"]);
+  });
+});

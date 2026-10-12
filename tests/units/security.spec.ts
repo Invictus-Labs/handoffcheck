@@ -294,3 +294,36 @@ describe("redaction and destination edge cases", () => {
     expect(hosts("fetch ftp://files.example.org/x")).toContain("files.example.org");
   });
 });
+
+describe("pattern scans stay linear on hostile input (untrusted stdout/stderr, scripts, artifacts)", () => {
+  const BUDGET_MS = 2500; // pre-fix: 256 KiB of `a.` took ~16 s per scan; 1 MiB of PEM headers ~7 s
+  const timed = (fn: () => unknown): number => {
+    const t0 = performance.now();
+    fn();
+    return performance.now() - t0;
+  };
+
+  it("negative control (P1): 256 KiB of `a.a.a...` is redacted and scanned for credentials and destinations within budget", () => {
+    const text = "a.".repeat(128 * 1024);
+    expect(timed(() => new Redactor([]).redact(text))).toBeLessThan(BUDGET_MS);
+    expect(timed(() => findCredentials(text))).toBeLessThan(BUDGET_MS);
+    expect(timed(() => findDestinations(text))).toBeLessThan(BUDGET_MS);
+  }, 120_000);
+
+  it("negative control (P2): 1 MiB of unterminated private-key headers is redacted within budget, and a real block is still removed whole", () => {
+    const header = ["-----BEGIN ", "PRIVATE", " KEY-----"].join("");
+    const text = `${header}\n`.repeat(Math.ceil((1024 * 1024) / 28));
+    expect(timed(() => new Redactor([]).redact(text))).toBeLessThan(BUDGET_MS);
+    const pem = (edge: string): string => ["-----", edge, " RSA ", "PRIVATE", " KEY-----"].join("");
+    const block = `${pem("BEGIN")}\nbm90LWEtcmVhbC1rZXktanVzdC1hLXN5bnRoZXRpYy1ib2R5LWxpbmU\n${pem("END")}`;
+    const out = new Redactor([]).redact(`before\n${block}\nafter`).text;
+    expect(out).toBe("before\n[REDACTED:private-key]\nafter");
+  }, 120_000);
+
+  it("a connection string behind a scheme-like run longer than the 32-char bound is still found and redacted", () => {
+    const text = `x${"a.".repeat(40)}postgres://admin:s3cretpass@db.example.com/app`;
+    expect(findCredentials(text).map((m) => m.kind)).toContain("connection-string-password");
+    expect(new Redactor([]).redact(text).text).not.toContain("s3cretpass");
+    expect(findDestinations(`see ${"b-".repeat(30)}https://api.example.com/v1`).map((d) => d.host)).toContain("api.example.com");
+  });
+});

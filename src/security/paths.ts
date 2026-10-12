@@ -58,10 +58,20 @@ export function linkTargetSyntaxOk(target: string): boolean {
 }
 
 /**
+ * Fold a relative path the way a case- and normalization-insensitive filesystem (default macOS APFS) compares names:
+ * Unicode NFC plus case folding. Two archive paths with the same folded key name the same file on such a filesystem.
+ */
+export function foldPathKey(p: string): string {
+  return p.normalize("NFC").toUpperCase().toLowerCase();
+}
+
+/**
  * Physically resolve a symlink target inside an archive tree. `links` maps every symlink path in the archive to its
  * target, so chains (d/s1 -> .., d/s2 -> ../d/s1/..) are expanded exactly as the filesystem would after extraction.
  * Returns the normalized in-root path the link finally points at, or null when it escapes the root (a `..` above the
- * root at any hop), is not syntactically valid, or loops / chains deeper than 40 hops.
+ * root at any hop), is not syntactically valid, or loops / chains deeper than 40 hops. Link lookups use
+ * {@link foldPathKey}, so `a/up` finds the link `A/up` exactly as a case-insensitive filesystem would: `links` MUST be
+ * keyed by folded paths.
  */
 export function resolveLinkInside(entryPath: string, target: string, links: ReadonlyMap<string, string>): string | null {
   if (!linkTargetSyntaxOk(target)) return null;
@@ -79,7 +89,7 @@ export function resolveLinkInside(entryPath: string, target: string, links: Read
     }
     stack.push(seg);
     const here = stack.join("/");
-    const link = links.get(here);
+    const link = links.get(foldPathKey(here));
     if (link !== undefined) {
       hops += 1;
       if (hops > 40 || !linkTargetSyntaxOk(link)) return null;

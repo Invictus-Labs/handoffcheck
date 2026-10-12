@@ -15,7 +15,8 @@ export interface CredentialPattern {
 
 export const CREDENTIAL_PATTERNS: readonly CredentialPattern[] = [
   { kind: "aws-access-key", re: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g },
-  { kind: "private-key", re: /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----(?:[\s\S]*?-----END (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----)?/g },
+  // the body never spans another BEGIN header: keeps a run of unterminated headers linear instead of quadratic
+  { kind: "private-key", re: /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----(?:(?:(?!-----BEGIN )[\s\S])*?-----END (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----)?/g },
   { kind: "github-token", re: /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})\b/g },
   { kind: "slack-token", re: /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/g },
   { kind: "stripe-live-key", re: /\b[sr]k_live_[A-Za-z0-9]{16,}\b/g },
@@ -25,8 +26,12 @@ export const CREDENTIAL_PATTERNS: readonly CredentialPattern[] = [
   { kind: "jwt", re: /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g }
 ];
 
-/** `scheme://user:password@host`: the password is a credential unless the host is loopback. */
-export const CONNECTION_STRING = /\b[a-z][a-z0-9+.-]*:\/\/([^\s:@/]+):([^\s@/]+)@(\[[0-9a-fA-F:]+\]|[^\s/:?#'"]+)/gi;
+/**
+ * `scheme://user:password@host`: the password is a credential unless the host is loopback.
+ * The scheme is bounded (at most 32 chars, i.e. its last 32 chars when longer) so a long `a.a.a...` run cannot make
+ * every start position rescan the whole run (quadratic, event-loop freeze on untrusted output).
+ */
+export const CONNECTION_STRING = /[a-z][a-z0-9+.-]{0,31}:\/\/([^\s:@/]+):([^\s@/]+)@(\[[0-9a-fA-F:]+\]|[^\s/:?#'"]+)/gi;
 
 /** Context patterns redacted from logs and evidence (not preflight rejections: plain words appear in docs). */
 export const CONTEXT_REDACTIONS: readonly CredentialPattern[] = [
@@ -72,7 +77,7 @@ export interface Destination {
   source: "url" | "tool" | "ipv4" | "socket";
 }
 
-const URL_RE = /\b[a-z][a-z0-9+.-]*:\/\/(?:[^\s/@'"]+@)?(\[[0-9a-fA-F:]+\]|[^\s/:?#'"`)<>]+)(?::(\d{1,5}))?/gi;
+const URL_RE = /[a-z][a-z0-9+.-]{0,31}:\/\/(?:[^\s/@'"]+@)?(\[[0-9a-fA-F:]+\]|[^\s/:?#'"`)<>]+)(?::(\d{1,5}))?/gi;
 const TOOL_RE = /\b(?:curl|wget|nc|ncat|netcat|ssh|scp|rsync|telnet|ftp|sftp|ping|dig|nslookup|host)\b([^\n;|&]*)/g;
 const HOSTLIKE = /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$|^(?:\d{1,3}\.){3}\d{1,3}$|^localhost$/;
 /** Common programmatic idioms (heuristic): /dev/tcp/HOST/PORT, python socket.create_connection/connect((HOST, PORT)), node net.connect. */

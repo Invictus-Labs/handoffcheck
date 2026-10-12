@@ -776,7 +776,7 @@ export async function executeDrill(ec: EngineContext, input: ExecuteInput): Prom
             await sandbox.destroy();
             resources = mergeResources(resources, sandbox.resources());
           } catch (e) {
-            destroyError = (e as Error).message;
+            destroyError = redactor.redact((e as Error).message).text;
           }
         }
         const d2 = ec.store.requireDrill(id);
@@ -788,7 +788,7 @@ export async function executeDrill(ec: EngineContext, input: ExecuteInput): Prom
       /* the original error is what the operator needs */
     }
     if (err instanceof HandoffCheckError) throw err;
-    throw new HandoffCheckError("INTERNAL", `harness failure: ${(err as Error).message}`);
+    throw new HandoffCheckError("INTERNAL", `harness failure: ${redactor.redact(String((err as Error)?.message ?? err)).text}`);
   }
 }
 
@@ -837,13 +837,14 @@ export async function retryCleanup(ec: EngineContext, drillId: string): Promise<
   if (d.state === "CLEANUP_VERIFIED" && latest) return latest;
   const provider = ec.providers[d.provider] ?? null;
   const resources = latest?.resources ?? [];
-  const ev = new EvidenceWriter(ec.store, ec.clock, ec.ids, drillId, new Redactor(ec.store.runSecrets(drillId)));
+  const redactor = new Redactor(ec.store.runSecrets(drillId));
+  const ev = new EvidenceWriter(ec.store, ec.clock, ec.ids, drillId, redactor);
   let destroyError: string | null = null;
   if (provider && resources.length > 0) {
     try {
       await provider.destroyResources(resources);
     } catch (e) {
-      destroyError = (e as Error).message;
+      destroyError = redactor.redact((e as Error).message).text;
     }
   }
   if (latest === null) {
@@ -854,7 +855,7 @@ export async function retryCleanup(ec: EngineContext, drillId: string): Promise<
         try {
           await provider.destroyResources(inventory);
         } catch (e) {
-          destroyError = (e as Error).message;
+          destroyError = redactor.redact((e as Error).message).text;
         }
       }
       return finishCleanup(ec, ev, drillId, provider, d.isolation, d.provider, inventory, "cleanup of an orphaned run from its recorded inventory", destroyError, !provider);

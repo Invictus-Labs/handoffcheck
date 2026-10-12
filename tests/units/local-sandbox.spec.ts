@@ -189,6 +189,35 @@ describe("local-sandbox: inventory, audit and cleanup retry", () => {
     expect(after.every((r) => r.state !== "leaked")).toBe(true);
   }, 60_000);
 
+  it("negative control (P1): a recorded process group id reused by an unrelated process is never killed and is not reported as leaked", async () => {
+    // an unrelated process group (detached => its own group, pgid = pid) standing in for a group that reused a recorded id
+    const other = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: "ignore", detached: true });
+    const pid = other.pid as number;
+    try {
+      await new Promise((r) => setTimeout(r, 300));
+      const stale: ResourceRecord = { kind: "process", id: `process-group:${pid}`, locator: `pgid:${pid}:Thu Jan  1 00:00:00 1970`, state: "unknown" };
+      const audited = await provider().audit([stale]);
+      expect(audited[0]?.state).toBe("removed");
+      expect(audited[0]?.detail).toMatch(/unrelated/);
+      await provider().destroyResources([stale]);
+      await new Promise((r) => setTimeout(r, 200));
+      expect(other.exitCode).toBeNull();
+      expect(other.signalCode).toBeNull();
+      // a legacy locator without the leader's start time cannot be verified: unknown, never killed
+      const legacy: ResourceRecord = { kind: "process", id: `process-group:${pid}`, locator: `pgid:${pid}`, state: "unknown" };
+      expect((await provider().audit([legacy]))[0]?.state).toBe("unknown");
+      await provider().destroyResources([legacy]);
+      await new Promise((r) => setTimeout(r, 200));
+      expect(other.signalCode).toBeNull();
+    } finally {
+      try {
+        process.kill(-pid, "SIGKILL");
+      } catch {
+        /* gone */
+      }
+    }
+  }, 30_000);
+
   it("a process that escapes the process group but keeps the sandbox marker is found by the scan audit and killed on retry", async () => {
     const p = provider();
     const sb = await p.provision(baseReq());

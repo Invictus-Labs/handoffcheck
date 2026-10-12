@@ -18,7 +18,7 @@ type Behavior = {
   auditError?: Error;
   auditState?: api.ResourceState;
   resources?: api.ResourceRecord[];
-  resourcesThrow?: boolean;
+  resourcesThrow?: boolean | string;
 };
 
 function fakeProvider(b: Behavior = {}): api.RunnerProvider {
@@ -46,7 +46,7 @@ function fakeProvider(b: Behavior = {}): api.RunnerProvider {
           return null;
         },
         resources: () => {
-          if (b.resourcesThrow) throw new Error("inventory unavailable");
+          if (b.resourcesThrow) throw new Error(typeof b.resourcesThrow === "string" ? b.resourcesThrow : "inventory unavailable");
           return resources;
         },
         async destroy() {
@@ -201,5 +201,18 @@ describe("harness failures outside a step", () => {
     expect(report.verdict.exit_code).toBe(1);
     expect(report.verdict.verdict).not.toBe("INDEPENDENT_PASS");
     expect(report.steps.every((s) => s.status === "SKIPPED")).toBe(true);
+  });
+
+  it("negative control: the harness-failure message and the cleanup note are redacted before they are surfaced or stored", async () => {
+    const secret = "HCFAKE_harness_leak_0123456789";
+    const inputs = prepareDrill({});
+    const ctx = makeCtx({ providers: { "local-sandbox": fakeProvider({ resourcesThrow: `inventory failed near ${secret}` }) } });
+    const err = await api.run(ctx, inputs.paths).then(() => null, (e: Error) => e);
+    expect(err).toMatchObject({ code: "INTERNAL" });
+    expect(err?.message).toMatch(/harness failure/);
+    expect(err?.message).not.toContain(secret);
+    const runs = (await api.listRuns(ctx)).runs;
+    const report = await api.getReport(ctx, { runId: runs[0]!.id });
+    expect(JSON.stringify(report)).not.toContain(secret);
   });
 });

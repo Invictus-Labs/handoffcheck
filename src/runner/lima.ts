@@ -13,7 +13,7 @@ import type {
 } from "../domain/types.js";
 import { HandoffCheckError } from "../domain/errors.js";
 import { ProvisionError } from "../domain/provision.js";
-import { isSafeRelativePath, resolveInside } from "../security/paths.js";
+import { hasSymlinkComponent, isSafeRelativePath, resolveInside } from "../security/paths.js";
 import { runCommand } from "./proc.js";
 import type { CommandResult } from "./proc.js";
 
@@ -259,9 +259,13 @@ export class LimaProvider implements RunnerProvider {
     };
     try {
       for (const d of ["release", "scripts", "state", "home", "tmp"]) mkdirSync(join(stage, d), { mode: 0o700 });
+      const releaseRoot = join(stage, "release");
       for (const e of req.artifact.entries) {
-        const full = resolveInside(join(stage, "release"), e.path);
+        const full = resolveInside(releaseRoot, e.path);
         if (!full) throw new Error(`unsafe artifact path ${e.path}`);
+        // never create anything through an already staged symlink: it could point anywhere on this host
+        const parent = e.path.includes("/") ? e.path.slice(0, e.path.lastIndexOf("/")) : "";
+        if (parent && hasSymlinkComponent(releaseRoot, parent)) throw new Error(`artifact entry ${e.path} is below a symlink`);
         if (e.type === "directory") mkdirSync(full, { recursive: true, mode: 0o755 });
         else if (e.type === "symlink") {
           mkdirSync(dirname(full), { recursive: true });

@@ -7,7 +7,8 @@ import { LimaProvider, findLimactl } from "../../src/runner/lima.js";
 import { makeFakeLima } from "../helpers/lima.js";
 import { makeCtx, prepareDrill } from "../helpers/drill.js";
 import { expectRed, runDrill, stepOf } from "../helpers/run.js";
-import { registerTmpCleanup } from "../helpers/tmp.js";
+import { readdirSync } from "node:fs";
+import { makeTmp, registerTmpCleanup } from "../helpers/tmp.js";
 
 registerTmpCleanup();
 
@@ -254,6 +255,20 @@ describe("lima protocol: provider options, audit and cleanup retry", () => {
     const p = new LimaProvider({ env: lima.env });
     await expect(p.provision(req({ artifact: { entries: [{ path: "../escape", type: "file", mode: 0o644, data: Buffer.from("x") }] } }))).rejects.toThrow(/unsafe artifact path/);
     await expect(p.provision(req({ scripts: [{ path: "../bad.sh", bytes: Buffer.from("x") }] }))).rejects.toThrow(/unsafe script path/);
+    expect(lima.calls().some((c) => c.startsWith("start"))).toBe(false);
+  });
+
+  it("negative control (P0): an artifact entry below an already staged symlink is refused, so nothing is written outside the staging dir", async () => {
+    const lima = makeFakeLima();
+    const base = makeTmp("hc-lima-stage-");
+    const p = new LimaProvider({ env: lima.env, baseDir: base });
+    // `up -> ..` points from release/ to the staging dir itself; `up/../PWNED` would land next to the staging dirs
+    const entries = [
+      { path: "up", type: "symlink" as const, mode: 0o777, linkname: ".." },
+      { path: "up/PWNED", type: "file" as const, mode: 0o644, data: Buffer.from("x") }
+    ];
+    await expect(p.provision(req({ artifact: { entries } }))).rejects.toThrow(/below a symlink/);
+    expect(readdirSync(base)).toEqual([]); // staging dir removed and nothing escaped into the base dir
     expect(lima.calls().some((c) => c.startsWith("start"))).toBe(false);
   });
 

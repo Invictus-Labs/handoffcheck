@@ -53,7 +53,7 @@ export function runPreflight(inputs: LoadedInputs, provider: { name: string; iso
     if (!r) reject({ code: "MISSING_RESOURCE_LIMITS", location: "/runner/resources", message: "VM runs require declared cpus, memory_mb and disk_mb limits" });
     for (const [i, dest] of m.network.allow.entries()) {
       const host = dest.replace(/:\d+$/, "");
-      if (!isLoopbackHost(host)) reject({ code: "UNDECLARED_NETWORK_DESTINATION", location: `/network/allow/${i}`, message: "the VM provider enforces deny-all egress; only loopback destinations may be declared" });
+      if (!isLoopbackHost(host)) reject({ code: "UNDECLARED_NETWORK_DESTINATION", location: `/network/allow/${i}`, message: "the VM provider removes guest default routes (egress NOT ENFORCED, best-effort); only loopback destinations may be declared" });
     }
   }
 

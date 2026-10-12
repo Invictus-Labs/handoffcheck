@@ -13,7 +13,7 @@ import type {
 } from "../domain/types.js";
 import { hasSymlinkComponent, isSafeRelativePath, resolveInside } from "../security/paths.js";
 import { runCommand } from "./proc.js";
-import { MARK_VAR, descendantsOf, pidAlive, psTable, psTableAsync, sameProcess, scanProcesses } from "./procscan.js";
+import { MARK_VAR, descendantsOf, pidAlive, psTable, psTableAsync, sameProcess, scanProcesses, type ProcRow } from "./procscan.js";
 
 export type TestFault = "leak-resource" | "leak-process" | null;
 
@@ -80,6 +80,22 @@ function groupAlive(pgid: number): boolean {
     return (e as NodeJS.ErrnoException).code === "EPERM";
   }
 }
+
+/**
+ * Whether process group `pgid` (recorded with its leader's start time) is still the group the sandbox started.
+ * A pid is never reused while a process group with that id exists, so a live group whose leader is gone is still ours;
+ * a live leader with a different start time means the id was reused by an unrelated process. Unverifiable is "unknown".
+ */
+export function groupIdentity(pgid: number, leaderStart: string, table: readonly ProcRow[] | null): "ours" | "gone" | "reused" | "unknown" {
+  if (!groupAlive(pgid)) return "gone";
+  if (!pidAlive(pgid)) return "ours";
+  if (leaderStart === "" || table === null) return "unknown";
+  const row = table.find((r) => r.pid === pgid);
+  if (!row) return "unknown";
+  return row.lstart === leaderStart ? "ours" : "reused";
+}
+
+const PGID_LOCATOR = /^pgid:(\d+)(?::(.*))?$/s;
 
 async function settle(check: () => boolean, attempts = 10, delayMs = 100): Promise<boolean> {
   for (let i = 0; i < attempts; i++) {
@@ -210,10 +226,12 @@ class LocalSandbox implements Sandbox {
   resources(): ResourceRecord[] {
     const out: ResourceRecord[] = [{ kind: "directory", id: `sandbox-dir:${this.id}`, locator: this.root, state: "unknown" }];
     // only process groups still alive can leak; exited groups need no tracking
-    for (const pgid of [...this.pgids].filter((p) => groupAlive(p)).sort((a, b) => a - b)) {
-      out.push({ kind: "process", id: `process-group:${pgid}`, locator: `pgid:${pgid}`, state: "unknown" });
-    }
     const table = psTable();
+    for (const pgid of [...this.pgids].filter((p) => groupAlive(p)).sort((a, b) => a - b)) {
+      // the leader's start time lets a later cleanup retry tell this group from an unrelated one that reused the id
+      const leaderStart = this.tracked.get(pgid) ?? table?.find((r) => r.pid === pgid)?.lstart ?? "";
+      out.push({ kind: "process", id: `process-group:${pgid}`, locator: `pgid:${pgid}:${leaderStart}`, state: "unknown" });
+    }
     const seen = new Map<number, string>([...this.tracked, ...this.strays]);
     for (const [pid, lstart] of [...seen].sort((a, b) => a[0] - b[0])) {
       if (sameProcess(pid, lstart, table)) out.push({ kind: "process", id: `process:${pid}`, locator: `pid:${pid}:${lstart}`, state: "unknown" });
@@ -301,9 +319,12 @@ export class LocalSandboxProvider implements RunnerProvider {
         const alive = m ? sameProcess(Number(m[1]), m[2] as string) : false;
         out.push({ ...r, state: alive ? "leaked" : "removed", ...(alive ? { detail: "process is still alive" } : {}) });
       } else if (r.kind === "process") {
-        const pgid = Number(r.locator.replace("pgid:", ""));
-        const alive = Number.isInteger(pgid) && pgid > 1 && groupAlive(pgid);
-        out.push({ ...r, state: alive ? "leaked" : "removed", ...(alive ? { detail: "process group is still alive" } : {}) });
+        const m = PGID_LOCATOR.exec(r.locator);
+        const pgid = m ? Number(m[1]) : NaN;
+        const who = Number.isInteger(pgid) && pgid > 1 ? groupIdentity(pgid, m?.[2] ?? "", psTable()) : "gone";
+        if (who === "ours") out.push({ ...r, state: "leaked", detail: "process group is still alive" });
+        else if (who === "unknown") out.push({ ...r, state: "unknown", detail: "a process group with this id is alive but its leader's start time cannot be verified" });
+        else out.push({ ...r, state: "removed", ...(who === "reused" ? { detail: "the process group id now belongs to an unrelated process" } : {}) });
       } else if (r.kind === "process-scan") {
         const marker = r.locator.replace("marker:", "");
         let scan = scanProcesses({ marker, dir: null, tracked: new Map() });
@@ -331,8 +352,10 @@ export class LocalSandboxProvider implements RunnerProvider {
         const m = /^pid:(\d+):(.*)$/s.exec(r.locator);
         if (m && sameProcess(Number(m[1]), m[2] as string)) killPidQuiet(Number(m[1]));
       } else if (r.kind === "process") {
-        const pgid = Number(r.locator.replace("pgid:", ""));
-        if (Number.isInteger(pgid) && pgid > 1) killGroupQuiet(pgid);
+        // only kill a group proven to be the sandbox's own: never an unrelated group that reused the id
+        const m = PGID_LOCATOR.exec(r.locator);
+        const pgid = m ? Number(m[1]) : NaN;
+        if (Number.isInteger(pgid) && pgid > 1 && groupIdentity(pgid, m?.[2] ?? "", psTable()) === "ours") killGroupQuiet(pgid);
       } else if (r.kind === "process-scan") {
         // include the sandbox directory (if it still exists) so processes holding it open are found too (lsof)
         const dirs = resources.filter((x) => x.kind === "directory" && /\/hcsbx-[^/]+$/.test(x.locator));
