@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cleanup-receipt.schema.json",
+  "title": "Cleanup receipt (append-only; latest seq wins)",
+  "description": "VERIFIED only when an independent audit shows every listed resource removed. Any leaked or unknown resource makes the status UNCONFIRMED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "drill_id", "seq", "provider", "isolation", "status", "resources", "verified_at", "note"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "drill_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "seq": { "type": "integer", "minimum": 0 },
+    "provider": { "type": "string", "pattern": "^[a-z0-9-]{1,32}$" },
+    "isolation": { "$ref": "common.schema.json#/$defs/isolation" },
+    "status": { "$ref": "common.schema.json#/$defs/cleanup_status" },
+    "resources": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "id", "locator", "state"],
+        "properties": {
+          "kind": { "enum": ["directory", "process", "process-scan", "vm-instance"] },
+          "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "locator": { "type": "string", "maxLength": 1024 },
+          "state": { "enum": ["removed", "leaked", "unknown"] },
+          "detail": { "type": "string", "maxLength": 512 }
+        }
+      }
+    },
+    "verified_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" },
+    "note": { "type": ["string", "null"], "maxLength": 1000 }
+  }
+}

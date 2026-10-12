@@ -1,0 +1,2 @@
+# rotate:probe-new stdout
+{"status":"accepted"}

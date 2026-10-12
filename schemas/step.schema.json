@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "step.schema.json",
+  "title": "Step record and step receipt",
+  "$defs": {
+    "step_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "id", "drill_id", "seq", "step_key", "action", "deadline_seconds", "mandatory",
+        "status", "reason_code", "evidence_hash", "started_at", "finished_at", "duration_ms"
+      ],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+        "id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "drill_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "step_key": { "$ref": "common.schema.json#/$defs/ident" },
+        "action": { "$ref": "common.schema.json#/$defs/step_action" },
+        "deadline_seconds": { "type": "integer", "minimum": 1 },
+        "mandatory": { "type": "boolean" },
+        "status": { "$ref": "common.schema.json#/$defs/step_status" },
+        "reason_code": { "$ref": "common.schema.json#/$defs/reason_code" },
+        "evidence_hash": { "oneOf": [{ "$ref": "common.schema.json#/$defs/sha256" }, { "type": "null" }] },
+        "started_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+        "finished_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+        "duration_ms": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] }
+      }
+    },
+    "step_receipt": {
+      "description": "Evidence document whose canonical-JSON sha256 is step_record.evidence_hash.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "drill_id", "step_key", "action", "status", "reason_code", "reason", "started_at", "finished_at",
+        "duration_ms", "deadline_seconds", "provider", "isolation", "checks", "executions", "intervention_ids"
+      ],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+        "drill_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "step_key": { "$ref": "common.schema.json#/$defs/ident" },
+        "action": { "$ref": "common.schema.json#/$defs/step_action" },
+        "status": { "$ref": "common.schema.json#/$defs/step_status" },
+        "reason_code": { "$ref": "common.schema.json#/$defs/reason_code" },
+        "reason": { "$ref": "common.schema.json#/$defs/text" },
+        "started_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+        "finished_at": { "oneOf": [{ "$ref": "common.schema.json#/$defs/utc_timestamp" }, { "type": "null" }] },
+        "duration_ms": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "deadline_seconds": { "type": "integer", "minimum": 1 },
+        "provider": { "type": "string" },
+        "isolation": { "$ref": "common.schema.json#/$defs/isolation" },
+        "checks": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "status"],
+            "properties": {
+              "name": { "type": "string", "maxLength": 200 },
+              "status": { "enum": ["PASS", "FAIL"] },
+              "expected": { "type": "string", "maxLength": 512 },
+              "actual": { "type": "string", "maxLength": 512 },
+              "detail": { "type": "string", "maxLength": 1024 }
+            }
+          }
+        },
+        "executions": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "script_sha256", "exit_code", "timed_out", "duration_ms", "stdout_sha256", "stderr_sha256", "truncated"],
+            "properties": {
+              "label": { "type": "string", "maxLength": 128 },
+              "script_sha256": { "oneOf": [{ "$ref": "common.schema.json#/$defs/sha256" }, { "type": "null" }] },
+              "exit_code": { "type": ["integer", "null"] },
+              "timed_out": { "type": "boolean" },
+              "duration_ms": { "type": "integer", "minimum": 0 },
+              "stdout_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+              "stderr_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+              "truncated": { "type": "boolean" }
+            }
+          }
+        },
+        "intervention_ids": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/uuid" } }
+      }
+    }
+  }
+}

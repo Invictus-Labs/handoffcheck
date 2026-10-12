@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "drill-manifest.schema.json",
+  "title": "HandoffCheck drill manifest (drill.yaml)",
+  "description": "Explicit, versioned execution inputs. Scripts are named files; nothing is ever generated from runbook prose.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scenario", "operator", "runner", "network", "steps"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "synthetic"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/ident" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 200 },
+        "synthetic": { "type": "boolean" }
+      }
+    },
+    "operator": { "$ref": "common.schema.json#/$defs/operator" },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "wall_seconds"],
+      "properties": {
+        "provider": { "enum": ["local-sandbox", "lima"] },
+        "wall_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "max_output_bytes": { "type": "integer", "minimum": 1024, "maximum": 16777216 },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpus", "memory_mb", "disk_mb"],
+          "properties": {
+            "cpus": { "type": "integer", "minimum": 1, "maximum": 64 },
+            "memory_mb": { "type": "integer", "minimum": 128, "maximum": 262144 },
+            "disk_mb": { "type": "integer", "minimum": 256, "maximum": 1048576 }
+          }
+        }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow"],
+      "properties": {
+        "allow": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 1, "maxLength": 255 } }
+      }
+    },
+    "env": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+      "additionalProperties": { "type": "string", "maxLength": 1024 }
+    },
+    "synthetic_secrets": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 4, "maxLength": 512 } },
+    "retention_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "$defs": {
+    "script": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "common.schema.json#/$defs/relpath" },
+        "interpreter": { "enum": ["sh", "bash", "node"] },
+        "args": { "type": "array", "maxItems": 32, "items": { "type": "string", "maxLength": 512 } },
+        "sha256": { "$ref": "common.schema.json#/$defs/sha256" }
+      }
+    },
+    "install_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action", "deadline_seconds", "script", "probe"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/ident" },
+        "action": { "const": "install" },
+        "deadline_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "mandatory": { "type": "boolean" },
+        "script": { "$ref": "#/$defs/script" },
+        "probe": { "$ref": "#/$defs/script" },
+        "probe_interval_ms": { "type": "integer", "minimum": 50, "maximum": 60000 }
+      }
+    },
+    "restore_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action", "deadline_seconds", "script", "measure", "expect"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/ident" },
+        "action": { "const": "restore" },
+        "deadline_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "mandatory": { "type": "boolean" },
+        "script": { "$ref": "#/$defs/script" },
+        "measure": { "$ref": "#/$defs/script" },
+        "expect": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["record_counts"],
+          "properties": {
+            "record_counts": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 256,
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "data_hashes": {
+              "type": "object",
+              "maxProperties": 256,
+              "additionalProperties": { "$ref": "common.schema.json#/$defs/sha256" }
+            },
+            "blobs": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "sha256"],
+                "properties": {
+                  "path": { "$ref": "common.schema.json#/$defs/relpath" },
+                  "sha256": { "$ref": "common.schema.json#/$defs/sha256" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "rotate_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action", "deadline_seconds", "script", "credentials", "probe"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/ident" },
+        "action": { "const": "rotate" },
+        "deadline_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "mandatory": { "type": "boolean" },
+        "script": { "$ref": "#/$defs/script" },
+        "credentials": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["old_file", "new_file"],
+          "properties": {
+            "old_file": { "$ref": "common.schema.json#/$defs/relpath" },
+            "new_file": { "$ref": "common.schema.json#/$defs/relpath" }
+          }
+        },
+        "probe": { "$ref": "#/$defs/script" },
+        "reject_exit_codes": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "type": "integer", "minimum": 1, "maximum": 255 } }
+      }
+    },
+    "recover_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action", "deadline_seconds", "seed_fault", "probe", "script", "max_recovery_seconds"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/ident" },
+        "action": { "const": "recover" },
+        "deadline_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "mandatory": { "type": "boolean" },
+        "seed_fault": { "$ref": "#/$defs/script" },
+        "probe": { "$ref": "#/$defs/script" },
+        "script": { "$ref": "#/$defs/script" },
+        "max_recovery_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 }
+      }
+    },
+    "step": {
+      "oneOf": [
+        { "$ref": "#/$defs/install_step" },
+        { "$ref": "#/$defs/restore_step" },
+        { "$ref": "#/$defs/rotate_step" },
+        { "$ref": "#/$defs/recover_step" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,73 @@
+# Synthetic drill manifest for the fixture notes service (fixture v1).
+# Every script is an explicit, versioned input next to this file; nothing is generated from the runbook.
+# All credentials are planted fakes carrying the HCFAKE marker. No network destination is used.
+schema_version: 1
+scenario:
+  id: notes-service-handoff
+  version: "1.0.0"
+  title: Synthetic notes service handoff drill
+  synthetic: true
+operator:
+  kind: automated
+  ref: qa-harness
+  builder_ref: fixture-builder
+runner:
+  provider: local-sandbox
+  wall_seconds: 120
+  max_output_bytes: 1048576
+  resources:
+    cpus: 1
+    memory_mb: 512
+    disk_mb: 512
+network:
+  allow: []
+env:
+  NOTES_BIND: 127.0.0.1
+synthetic_secrets:
+  - HCFAKE_OLD_5B1E0C7A9D3F4E28
+  - HCFAKE_NEW_C8A2D6F0B4E17359
+retention_days: 90
+steps:
+  - id: install
+    action: install
+    deadline_seconds: 60
+    script: { path: scripts/install.sh }
+    probe: { path: scripts/health.sh }
+    probe_interval_ms: 200
+  - id: restore
+    action: restore
+    deadline_seconds: 60
+    script: { path: scripts/restore.sh }
+    measure: { path: scripts/measure.sh }
+    expect:
+      record_counts:
+        notes: 12
+        blobs: 3
+      data_hashes:
+        rec-0001: 5b2af6b760369819d80eab33c1d8463cf8bc7a93266d77730cb47482aadaf57b
+        rec-0003: 850ab62ebcc87271cf995a0d25b2ed58a79b32d1b0e611999614bfe7763199a6
+        rec-0007: f6ce785cb9bd11948eb600d7c42ae435a13adab2f9621be9ed0839804dc2704a
+        rec-0012: f4459a9c5171e462b55f1e9e063ca90c7a85d48eac0dd525b9446fa1103b983a
+      blobs:
+        - path: state/notes/blobs/1032454144e731fe132ae33f5698d63c7dee3bd82c41816dba25f99b5a4cd56d.bin
+          sha256: 1032454144e731fe132ae33f5698d63c7dee3bd82c41816dba25f99b5a4cd56d
+        - path: state/notes/blobs/7d585564ef201427fd7ec7daaedf925badae1ac4935934712bb201e27647474f.bin
+          sha256: 7d585564ef201427fd7ec7daaedf925badae1ac4935934712bb201e27647474f
+        - path: state/notes/blobs/d6f60f49f34202ab78a950710c6c10f88c99d3928daeea1bf52fdd5b556b728b.bin
+          sha256: d6f60f49f34202ab78a950710c6c10f88c99d3928daeea1bf52fdd5b556b728b
+  - id: rotate
+    action: rotate
+    deadline_seconds: 60
+    script: { path: scripts/rotate.sh }
+    credentials:
+      old_file: state/credential.old
+      new_file: state/credential.new
+    probe: { path: scripts/auth-probe.sh }
+    reject_exit_codes: [3]
+  - id: recover
+    action: recover
+    deadline_seconds: 60
+    seed_fault: { path: scripts/seed-failure.sh }
+    probe: { path: scripts/worker-probe.sh }
+    script: { path: scripts/recover.sh }
+    max_recovery_seconds: 30

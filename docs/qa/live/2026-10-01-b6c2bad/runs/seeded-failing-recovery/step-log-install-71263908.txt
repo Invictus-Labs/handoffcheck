@@ -1,0 +1,2 @@
+# install:script stdout
+{"status":"installed","version":"1.0.0"}

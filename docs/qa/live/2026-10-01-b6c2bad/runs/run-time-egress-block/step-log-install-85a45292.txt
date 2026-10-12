@@ -1,0 +1,3 @@
+# install:script stdout
+egress blocked as expected
+{"status":"installed","version":"1.0.0"}

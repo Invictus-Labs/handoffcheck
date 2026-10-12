@@ -1,0 +1,2 @@
+# recover:recovery stdout
+{"status":"worker_idle","processed":2}

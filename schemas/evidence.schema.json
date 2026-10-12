@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evidence.schema.json",
+  "title": "Evidence record (content-addressed, append-only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "drill_id", "step_key", "kind", "sha256", "media_type", "size_bytes", "redacted", "redaction_count", "created_at"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "drill_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "step_key": { "type": ["string", "null"], "maxLength": 64 },
+    "kind": { "$ref": "common.schema.json#/$defs/evidence_kind" },
+    "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+    "media_type": { "enum": ["application/json", "text/plain"] },
+    "size_bytes": { "type": "integer", "minimum": 0 },
+    "redacted": { "type": "boolean" },
+    "redaction_count": { "type": "integer", "minimum": 0 },
+    "created_at": { "$ref": "common.schema.json#/$defs/utc_timestamp" }
+  }
+}

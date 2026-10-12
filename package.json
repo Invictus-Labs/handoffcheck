@@ -6,7 +6,7 @@
   "type": "module",
   "engines": { "node": ">=22.13" },
   "bin": { "handoffcheck": "dist/src/cli.js" },
-  "files": ["dist/src", "schemas", "migrations", "templates", "README.md", "LICENSE"],
+  "files": ["dist/src", "schemas", "migrations", "templates", "fixtures", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
