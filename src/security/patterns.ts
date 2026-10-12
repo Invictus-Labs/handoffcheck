@@ -22,15 +22,19 @@ export interface CredentialPattern {
  *  3. there are no adjacent optional whitespace runs (`\s*(?:x)?\s*`), whose ambiguous splits backtrack quadratically;
  *  4. scanning goes through {@link boundedMatchAll}, which runs each regex over windows of at most SCAN_WINDOW_CHARS.
  * Consequence: tokens longer than a pattern's bound are not matched (or only their bounded prefix is); the bounds sit well
- * above the real formats.
+ * above the real formats. Private keys are exempt from this: only their header and END marker are matched, and the body is
+ * removed by offset ({@link privateKeySpans}), fail closed to the end of the text when no END marker follows.
  */
+/** `-----BEGIN <label> PRIVATE KEY-----` (PEM, OpenSSH, PGP `... PRIVATE KEY BLOCK`). Detection matches the header alone. */
+export const PRIVATE_KEY_BEGIN = /-----BEGIN (?:[A-Z0-9]{1,32} ){0,8}PRIVATE KEY(?: BLOCK)?-----/g;
+/** The matching END marker; only ever used to close a span opened by {@link PRIVATE_KEY_BEGIN}. */
+export const PRIVATE_KEY_END = /-----END (?:[A-Z0-9]{1,32} ){0,8}PRIVATE KEY(?: BLOCK)?-----/g;
+
 export const CREDENTIAL_PATTERNS: readonly CredentialPattern[] = [
   { kind: "aws-access-key", re: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g },
-  // the body never spans another BEGIN header: keeps a run of unterminated headers linear instead of quadratic
-  {
-    kind: "private-key",
-    re: /-----BEGIN (?:[A-Z0-9]{1,32} ){0,8}PRIVATE KEY(?: BLOCK)?-----(?:(?:(?!-----BEGIN )[\s\S]){0,16384}?-----END (?:[A-Z0-9]{1,32} ){0,8}PRIVATE KEY(?: BLOCK)?-----)?/g
-  },
+  // header only: a key body is never matched by a regex (whose bound or window edge could cut it short). Redaction removes
+  // whole spans from {@link privateKeySpans} instead.
+  { kind: "private-key", re: PRIVATE_KEY_BEGIN },
   { kind: "github-token", re: /\b(?:gh[pousr]_[A-Za-z0-9]{30,255}|github_pat_[A-Za-z0-9_]{30,255})\b/g },
   { kind: "slack-token", re: /\bxox[abprs]-[A-Za-z0-9-]{10,255}\b/g },
   { kind: "stripe-live-key", re: /\b[sr]k_live_[A-Za-z0-9]{16,255}\b/g },
@@ -111,6 +115,44 @@ export function boundedReplace(text: string, re: RegExp, fn: (m: RegExpExecArray
   return parts.join("");
 }
 
+export interface PrivateKeySpan {
+  start: number;
+  /** Exclusive end: just past the END marker, or the end of the text when no END marker follows. */
+  end: number;
+  terminated: boolean;
+}
+
+/**
+ * The spans of `text` that hold private keys, for redaction. Each span runs from a BEGIN header to the first END marker after
+ * it; when no END marker follows (a truncated stream, or a block cut anywhere), it runs to the end of the text (fail closed).
+ * A header inside an earlier span is part of that span. Only the bounded header and END patterns are regex-matched (through
+ * {@link boundedMatchAll}); the body is located by absolute offsets, so its length and the scan-window edges cannot leave any
+ * of it outside the span. Linear: one pass over the headers and the END markers.
+ */
+export function privateKeySpans(text: string): PrivateKeySpan[] {
+  const begins = boundedMatchAll(text, PRIVATE_KEY_BEGIN);
+  if (begins.length === 0) return [];
+  const ends = boundedMatchAll(text, PRIVATE_KEY_END);
+  const spans: PrivateKeySpan[] = [];
+  let e = 0;
+  let covered = 0;
+  for (const b of begins) {
+    const start = b.index as number;
+    if (start < covered) continue;
+    const bodyStart = start + b[0].length;
+    while (e < ends.length && (ends[e]?.index as number) < bodyStart) e += 1;
+    const end = ends[e];
+    if (end === undefined) {
+      spans.push({ start, end: text.length, terminated: false });
+      break;
+    }
+    covered = (end.index as number) + end[0].length;
+    spans.push({ start, end: covered, terminated: true });
+    e += 1;
+  }
+  return spans;
+}
+
 export function isLoopbackHost(host: string): boolean {
   const h = host.toLowerCase().replace(/^\[|\]$/g, "");
   if (h === "localhost" || h === "::1" || h === "0.0.0.0" || h === "::") return true;
@@ -163,6 +205,7 @@ const IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 /** Every regex this module applies to untrusted text, for the structural and adversarial-timing tests. */
 export const SCAN_PATTERNS: readonly { name: string; re: RegExp }[] = [
   ...CREDENTIAL_PATTERNS.map((p) => ({ name: `credential:${p.kind}`, re: p.re })),
+  { name: "credential:private-key-end", re: PRIVATE_KEY_END },
   { name: "connection-string", re: CONNECTION_STRING },
   ...CONTEXT_REDACTIONS.map((p) => ({ name: `context:${p.kind}`, re: p.re })),
   { name: "destination:url", re: URL_RE },

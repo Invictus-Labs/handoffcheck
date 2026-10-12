@@ -1,4 +1,4 @@
-import { CONNECTION_STRING, CONTEXT_REDACTIONS, CREDENTIAL_PATTERNS, SYNTHETIC_MARKER, boundedReplace } from "./patterns.js";
+import { CONNECTION_STRING, CONTEXT_REDACTIONS, CREDENTIAL_PATTERNS, SYNTHETIC_MARKER, boundedReplace, privateKeySpans } from "./patterns.js";
 
 const MIN_LITERAL = 4;
 
@@ -40,8 +40,22 @@ export class Redactor {
   }
 
   redact(input: string, opts: { truncated?: boolean } = {}): RedactionResult {
-    let text = input;
     let count = 0;
+    // private keys first, before any other replacement can alter a header: header to END marker, or to the end of the text
+    // when the block is unterminated (truncated or cut), so no part of a key body is ever stored
+    const keys = privateKeySpans(input);
+    let text = input;
+    if (keys.length > 0) {
+      const parts: string[] = [];
+      let at = 0;
+      for (const k of keys) {
+        parts.push(input.slice(at, k.start), k.terminated ? "[REDACTED:private-key]" : "[REDACTED:private-key:unterminated]");
+        at = k.end;
+      }
+      parts.push(input.slice(at));
+      text = parts.join("");
+      count += keys.length;
+    }
     const sorted = [...this.literals].filter((l) => l.length >= MIN_LITERAL).sort((a, b) => b.length - a.length);
     for (const lit of sorted) {
       if (text.includes(lit)) {
@@ -52,6 +66,7 @@ export class Redactor {
     }
     // every pattern runs through the window-bounded scanner (regex-DoS safety on untrusted output, see patterns.ts)
     for (const p of CREDENTIAL_PATTERNS) {
+      if (p.kind === "private-key") continue; // removed whole above
       text = boundedReplace(text, p.re, () => {
         count += 1;
         return `[REDACTED:${p.kind}]`;
