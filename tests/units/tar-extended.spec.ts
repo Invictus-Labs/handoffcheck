@@ -1,6 +1,7 @@
 // Extended tar formats and numeric edge cases of the product's tar reader (src/security/tar.ts).
 import { describe, expect, it } from "vitest";
 import { buildTar } from "../../scripts/build-fixture-release.mjs";
+import { foldPathKey, isAsciiPath, resolveLinkInside } from "../../src/security/paths.js";
 import { TarError, readTar, type TarLimits } from "../../src/security/tar.js";
 
 const limits: TarLimits = { maxEntries: 100, maxTotalBytes: 1024 * 1024, symlinks: "in-root", strictTrailing: true };
@@ -144,5 +145,94 @@ describe("case- and normalization-insensitive filesystems (default macOS APFS)",
       { path: "A/f.txt", data: "x" }
     ]);
     expect(readTar(tar, limits).map((e) => e.path)).toEqual(["A", "A/up", "L", "A/f.txt"]);
+  });
+});
+
+describe("non-ASCII archive names are refused (round 3: no attempt at a complete Unicode case fold)", () => {
+  // APFS treats these spellings as one name, but no portable fold reproduces its rules: U+00DF (sharp s), U+1E9E (capital
+  // sharp s) and "ss"; the Greek dialytika-tonos forms U+0390/U+03B0 and their decomposed/uppercased variants; NFC vs NFD
+  const SHARP_S = "ß";
+  const CAPITAL_SHARP_S = "ẞ";
+  const nonAscii = [
+    SHARP_S,
+    CAPITAL_SHARP_S,
+    "ΐ",
+    "ΰ",
+    "ΐ",
+    "ΰ",
+    "ΐ",
+    "ΰ",
+    "café",
+    "café",
+    "K" // KELVIN SIGN, which case-folds to ASCII "k"
+  ];
+  const message = (fn: () => unknown): string => {
+    try {
+      fn();
+    } catch (e) {
+      return (e as Error).message;
+    }
+    return "NO_ERROR";
+  };
+
+  it("negative control (P0): the reviewer's sharp-s symlink chain is rejected (`d/U+1E9E -> ..`, `x -> d/U+00DF/d/U+00DF/../../../..`)", () => {
+    const tar = buildTar([
+      { path: "d/", type: "5" },
+      { path: `d/${CAPITAL_SHARP_S}`, type: "2", linkname: ".." },
+      { path: "x", type: "2", linkname: `d/${SHARP_S}/d/${SHARP_S}/../../../..` }
+    ]);
+    expect(code(() => readTar(tar, limits))).toBe("UNSAFE");
+    expect(message(() => readTar(tar, limits))).toMatch(/non-ASCII/);
+  });
+
+  it("negative control: an ASCII link reached through a non-ASCII alias in a target is rejected (`d/ss -> ..`, `x -> d/U+00DF/../..`)", () => {
+    const tar = buildTar([
+      { path: "d/", type: "5" },
+      { path: "d/ss", type: "2", linkname: ".." },
+      { path: "x", type: "2", linkname: `d/${SHARP_S}/../..` }
+    ]);
+    expect(message(() => readTar(tar, limits))).toMatch(/target with non-ASCII/);
+  });
+
+  it("negative control: every non-ASCII spelling (sharp s, Greek dialytika-tonos, NFC/NFD) is refused as a name and as a link target", () => {
+    for (const n of nonAscii) {
+      expect(message(() => readTar(buildTar([{ path: `dir/${n}`, data: "x" }]), limits)), JSON.stringify(n)).toMatch(/non-ASCII/);
+      expect(message(() => readTar(buildTar([{ path: `${n}/`, type: "5" }]), limits)), JSON.stringify(n)).toMatch(/non-ASCII/);
+      expect(message(() => readTar(buildTar([{ path: "l", type: "2", linkname: n }]), limits)), JSON.stringify(n)).toMatch(/non-ASCII/);
+    }
+    // NFC and NFD forms of the same name are both refused, so they can never be staged as two different files
+    expect(code(() => readTar(buildTar([{ path: "café".normalize("NFD"), data: "x" }]), limits))).toBe("UNSAFE");
+    expect(code(() => readTar(buildTar([{ path: "café".normalize("NFC"), data: "x" }]), limits))).toBe("UNSAFE");
+  });
+
+  it("negative control: plain ASCII case collisions are still duplicates (file/file, dir/file, nested, link/dir)", () => {
+    expect(message(() => readTar(buildTar([{ path: "ss", data: "a" }, { path: "SS", data: "b" }]), limits))).toMatch(/duplicate entry/);
+    expect(message(() => readTar(buildTar([{ path: "Dir/", type: "5" }, { path: "dir", data: "b" }]), limits))).toMatch(/duplicate entry/);
+    expect(message(() => readTar(buildTar([{ path: "a/B/c", data: "a" }, { path: "A/b/C", data: "b" }]), limits))).toMatch(/duplicate entry/);
+    expect(message(() => readTar(buildTar([{ path: "Link", type: "2", linkname: "x" }, { path: "LINK/", type: "5" }]), limits))).toMatch(/duplicate entry/);
+  });
+
+  it("negative control: a write through an in-root link spelled with different ASCII case is rejected (`l -> A` + `L/x`, `L -> A` + `l/x`)", () => {
+    for (const [link, file] of [["l", "L/x"], ["L", "l/x"]] as const) {
+      const tar = buildTar([
+        { path: "A/", type: "5" },
+        { path: link, type: "2", linkname: "A" },
+        { path: file, data: "x" }
+      ]);
+      expect(message(() => readTar(tar, limits)), `${link} ${file}`).toMatch(/written through a symlink/);
+    }
+  });
+
+  it("resolveLinkInside folds raw (unfolded) link maps itself and refuses non-ASCII hops", () => {
+    const links = new Map([["A/up", ".."]]);
+    expect(resolveLinkInside("s", "a/up/a/up/../..", links)).toBeNull();
+    expect(resolveLinkInside("s", "a/up/A", links)).toBe("A");
+    expect(resolveLinkInside("s", `d/${SHARP_S}`, new Map())).toBeNull();
+    expect(resolveLinkInside("s", "d/x", new Map([[`d/${CAPITAL_SHARP_S}`, ".."]]))).toBeNull();
+    expect(resolveLinkInside("s", "d/x", new Map([["d/x", SHARP_S]]))).toBeNull();
+    expect(foldPathKey("AbC/É")).toBe("abc/É"); // ASCII-only fold: non-ASCII never reaches it from the tar reader
+    expect(isAsciiPath("plain/ascii name.txt")).toBe(true);
+    expect(isAsciiPath(`a/${SHARP_S}`)).toBe(false);
+    expect(isAsciiPath("tab\there")).toBe(false);
   });
 });

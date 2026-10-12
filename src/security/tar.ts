@@ -1,6 +1,6 @@
 import { gunzipSync } from "node:zlib";
 import type { ArtifactEntry } from "../domain/types.js";
-import { foldPathKey, linkTargetSyntaxOk, normalizeRelativePath, resolveLinkInside } from "./paths.js";
+import { foldPathKey, isAsciiPath, linkTargetSyntaxOk, normalizeRelativePath, resolveLinkInside } from "./paths.js";
 
 export type TarErrorCode = "TRUNCATED" | "UNSAFE" | "LIMIT" | "FORMAT" | "TRAILING_DATA";
 
@@ -164,9 +164,12 @@ export function readTar(input: Buffer, limits: TarLimits): ArtifactEntry[] {
     if (isDir && /^(\.\/?)+$/.test(name.replace(/\/+$/, "/"))) continue;
     const clean = normalizeRelativePath(isDir ? name.replace(/\/+$/, "") : name);
     if (clean === null) throw new TarError("UNSAFE", `unsafe entry path ${JSON.stringify(name.slice(0, 80))}`);
-    // a case- or normalization-insensitive filesystem (default macOS APFS) maps names that fold equal to one file
+    // safety limitation: non-ASCII names are refused, because a case- and normalization-insensitive filesystem (default
+    // macOS APFS) folds them with rules no portable fold reproduces exactly (ß/ẞ/ss, NFC/NFD, Greek tonos forms)
+    if (!isAsciiPath(clean)) throw new TarError("UNSAFE", `entry path ${JSON.stringify(clean.slice(0, 80))} contains non-ASCII or control characters (not supported)`);
+    // a case-insensitive filesystem maps ASCII names that differ only in case to one file
     const key = foldPathKey(clean);
-    if (seen.has(key)) throw new TarError("UNSAFE", `duplicate entry ${JSON.stringify(clean)} (paths are compared case- and normalization-insensitively)`);
+    if (seen.has(key)) throw new TarError("UNSAFE", `duplicate entry ${JSON.stringify(clean)} (paths are compared ASCII case-insensitively)`);
     seen.add(key);
     const mode = readOctal(input, headerStart + 100, 8) & 0o777;
 
@@ -178,6 +181,7 @@ export function readTar(input: Buffer, limits: TarLimits): ArtifactEntry[] {
     } else if (typeflag === "2") {
       if (limits.symlinks === "none") throw new TarError("UNSAFE", `symlink entries are not allowed (${JSON.stringify(clean)})`);
       if (!linkTargetSyntaxOk(linkname)) throw new TarError("UNSAFE", `symlink ${JSON.stringify(clean)} has an absolute or malformed target`);
+      if (!isAsciiPath(linkname)) throw new TarError("UNSAFE", `symlink ${JSON.stringify(clean)} has a target with non-ASCII or control characters (not supported)`);
       entries.push({ path: clean, type: "symlink", mode: 0o777, linkname });
     } else if (typeflag === "1") {
       throw new TarError("UNSAFE", `hard link entries are not allowed (${JSON.stringify(clean)})`);
@@ -188,7 +192,7 @@ export function readTar(input: Buffer, limits: TarLimits): ArtifactEntry[] {
 
   if (!endSeen) throw new TarError("TRUNCATED", "archive has no end-of-archive marker");
   // physical containment: resolve every link through the complete link map so chains cannot climb out of the root
-  const linkMap = new Map(entries.filter((e) => e.type === "symlink").map((e) => [foldPathKey(e.path), e.linkname as string]));
+  const linkMap = new Map(entries.filter((e) => e.type === "symlink").map((e) => [e.path, e.linkname as string]));
   for (const e of entries.filter((x) => x.type === "symlink")) {
     const path = e.path;
     if (resolveLinkInside(path, e.linkname as string, linkMap) === null) throw new TarError("UNSAFE", `symlink ${JSON.stringify(path)} points outside the archive root (physically resolved)`);

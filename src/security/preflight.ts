@@ -80,16 +80,30 @@ export function runPreflight(inputs: LoadedInputs, provider: { name: string; iso
   let artifactEntries = 0;
   if (inputs.artifactEntries) {
     let scanned = 0;
+    let partial = 0;
     for (const e of inputs.artifactEntries) {
       artifactEntries += 1;
       if (e.type !== "file" || !e.data || e.data.length === 0) continue;
-      if (scanned > scanTotalBytes) break;
+      if (scanned > scanTotalBytes) {
+        partial += 1;
+        continue;
+      }
       const slice = e.data.subarray(0, ARTIFACT_SCAN_FILE_BYTES);
+      if (slice.length < e.data.length) partial += 1;
       scanned += slice.length;
       if (!looksText(slice)) continue;
       for (const hit of findCredentials(Buffer.from(slice).toString("utf8"))) {
         reject({ code: "PRODUCTION_CREDENTIAL", location: `artifact:${e.path}`, message: `production credential pattern (${hit.kind}) found in artifact`, kind: hit.kind });
       }
+    }
+    // never a silent pass: say when content past the scan budget was not checked for credentials
+    if (partial > 0) {
+      findings.push({
+        code: "ARTIFACT_SCAN_PARTIAL",
+        severity: "warn",
+        location: "artifact",
+        message: `${partial} artifact file(s) were not fully scanned for credentials (scan limits: ${ARTIFACT_SCAN_FILE_BYTES} bytes per file, about ${scanTotalBytes} bytes in total)`
+      });
     }
   }
 

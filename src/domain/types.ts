@@ -352,6 +352,7 @@ export interface PreflightFinding {
     | "MISSING_RESOURCE_LIMITS"
     | "ARTIFACT_UNSAFE"
     | "ARTIFACT_LIMIT"
+    | "ARTIFACT_SCAN_PARTIAL"
     | "ENV_UNSAFE"
     | "MANIFEST_SEMANTICS";
   severity: FindingSeverity;

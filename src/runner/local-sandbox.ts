@@ -11,7 +11,7 @@ import type {
   RunnerProvider,
   Sandbox
 } from "../domain/types.js";
-import { hasSymlinkComponent, isSafeRelativePath, resolveInside } from "../security/paths.js";
+import { hasSymlinkComponent, isAsciiPath, isSafeRelativePath, resolveInside } from "../security/paths.js";
 import { runCommand } from "./proc.js";
 import { MARK_VAR, descendantsOf, pidAlive, psTable, psTableAsync, sameProcess, scanProcesses, type ProcRow } from "./procscan.js";
 
@@ -282,6 +282,8 @@ export class LocalSandboxProvider implements RunnerProvider {
       for (const e of req.artifact.entries) {
         const full = resolveInside(releaseRoot, e.path);
         if (!full) throw new Error(`unsafe artifact path ${e.path}`);
+        // the staging host may fold names case- and normalization-insensitively: refuse anything that is not plain ASCII
+        if (!isAsciiPath(e.path) || (e.type === "symlink" && !isAsciiPath(e.linkname ?? ""))) throw new Error(`artifact entry ${JSON.stringify(e.path)} has a non-ASCII name or link target`);
         const parent = e.path.includes("/") ? e.path.slice(0, e.path.lastIndexOf("/")) : "";
         if (parent && hasSymlinkComponent(releaseRoot, parent)) throw new Error(`artifact entry ${e.path} is below a symlink`);
         if (e.type === "directory") {

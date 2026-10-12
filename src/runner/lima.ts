@@ -13,7 +13,7 @@ import type {
 } from "../domain/types.js";
 import { HandoffCheckError } from "../domain/errors.js";
 import { ProvisionError } from "../domain/provision.js";
-import { hasSymlinkComponent, isSafeRelativePath, resolveInside } from "../security/paths.js";
+import { hasSymlinkComponent, isAsciiPath, isSafeRelativePath, resolveInside } from "../security/paths.js";
 import { runCommand } from "./proc.js";
 import type { CommandResult } from "./proc.js";
 
@@ -161,9 +161,10 @@ class LimaSandbox implements Sandbox {
   async readFile(relPath: string, maxBytes: number): Promise<Uint8Array | null> {
     if (!isSafeRelativePath(relPath)) return null;
     const script = 'if [ -f "$1" ] && [ ! -L "$1" ]; then head -c "$2" "$1"; else exit 44; fi';
-    // files belong to the workload user and may be private: read them with sudo, with an output cap that fits the file
+    // files belong to the workload user and may be private: read them AS that user (never as root, so a workload-planted
+    // intermediate symlink such as state/x -> /etc cannot make the harness read root-only guest files), with an output cap
     const res = await this.ctl(
-      ["shell", this.id, "--", "sudo", "-n", "sh", "-c", script, "hc-read", `${REMOTE_ROOT}/${relPath}`, String(maxBytes + 1)],
+      ["shell", this.id, "--", "sudo", "-n", "-u", WORKLOAD_USER, "sh", "-c", script, "hc-read", `${REMOTE_ROOT}/${relPath}`, String(maxBytes + 1)],
       SHORT_TIMEOUT_MS,
       undefined,
       maxBytes + 4096
@@ -263,6 +264,8 @@ export class LimaProvider implements RunnerProvider {
       for (const e of req.artifact.entries) {
         const full = resolveInside(releaseRoot, e.path);
         if (!full) throw new Error(`unsafe artifact path ${e.path}`);
+        // the staging host may fold names case- and normalization-insensitively: refuse anything that is not plain ASCII
+        if (!isAsciiPath(e.path) || (e.type === "symlink" && !isAsciiPath(e.linkname ?? ""))) throw new Error(`artifact entry ${JSON.stringify(e.path)} has a non-ASCII name or link target`);
         // never create anything through an already staged symlink: it could point anywhere on this host
         const parent = e.path.includes("/") ? e.path.slice(0, e.path.lastIndexOf("/")) : "";
         if (parent && hasSymlinkComponent(releaseRoot, parent)) throw new Error(`artifact entry ${e.path} is below a symlink`);

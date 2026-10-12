@@ -73,6 +73,18 @@ describe("local-sandbox: provisioning", () => {
     await expect(p.provision(baseReq({ scripts: [{ path: "../bad.sh", bytes: Buffer.from("x") }] }))).rejects.toThrow(/unsafe script path/);
     expect(existsSync(join(base)) ? (await import("node:fs")).readdirSync(base) : []).toEqual([]);
   });
+
+  it("negative control: non-ASCII artifact names and link targets are refused at staging (defense in depth behind readTar)", async () => {
+    const base = makeTmp("hc-lsb-ascii-");
+    const p = new LocalSandboxProvider({ baseDir: base });
+    const bad = [
+      [{ path: "d/\u1e9e", type: "symlink" as const, mode: 0o777, linkname: ".." }],
+      [{ path: "x", type: "symlink" as const, mode: 0o777, linkname: "d/\u00df/.." }],
+      [{ path: "cafe\u0301", type: "file" as const, mode: 0o644, data: Buffer.from("x") }]
+    ];
+    for (const e of bad) await expect(p.provision(baseReq({ artifact: { entries: e } }))).rejects.toThrow(/non-ASCII/);
+    expect((await import("node:fs")).readdirSync(base)).toEqual([]);
+  });
 });
 
 describe("local-sandbox: exec and readFile", () => {

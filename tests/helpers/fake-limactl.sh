@@ -49,6 +49,8 @@ case "$cmd" in
     [ "${1:-}" = "--" ] && shift
     # the provider reads guest files with `sudo -n`; the fake has no privilege model, so it simply drops the prefix
     [ "${1:-}" = "sudo" ] && shift 2
+    # ...and the `-u <workload user>` of a read performed as the unprivileged workload user
+    [ "${1:-}" = "-u" ] && shift 2
     root="$H/instances/$name/root"
     [ -d "$root" ] || { echo "no such instance" >&2; exit 5; }
     # $1=sh $2=-c $3=script ...

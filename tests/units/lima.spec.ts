@@ -213,6 +213,10 @@ describe("lima protocol: fail-closed behaviour", () => {
     expect(await sandbox.readFile("../x", 100)).toBeNull();
     expect(await sandbox.readFile("release/missing", 100)).toBeNull();
     expect(await sandbox.readFile("release/a.txt", 2)).toBeNull();
+    // guest files are read as the unprivileged workload user, never as root (intermediate workload symlinks gain nothing)
+    const reads = lima.calls().filter((c) => c.includes("hc-read"));
+    expect(reads.length).toBeGreaterThan(0);
+    for (const c of reads) expect(c).toContain("-- sudo -n -u hcrun sh -c");
     const before = sandbox.resources();
     expect(before.map((r) => r.kind).sort()).toEqual(["directory", "vm-instance"]);
     await sandbox.destroy();
@@ -269,6 +273,20 @@ describe("lima protocol: provider options, audit and cleanup retry", () => {
     ];
     await expect(p.provision(req({ artifact: { entries } }))).rejects.toThrow(/below a symlink/);
     expect(readdirSync(base)).toEqual([]); // staging dir removed and nothing escaped into the base dir
+    expect(lima.calls().some((c) => c.startsWith("start"))).toBe(false);
+  });
+
+  it("negative control: non-ASCII artifact names and link targets are refused before staging or starting a VM", async () => {
+    const lima = makeFakeLima();
+    const base = makeTmp("hc-lima-ascii-");
+    const p = new LimaProvider({ env: lima.env, baseDir: base });
+    const entries = [
+      { path: "d", type: "directory" as const, mode: 0o755 },
+      { path: "d/\u1e9e", type: "symlink" as const, mode: 0o777, linkname: ".." },
+      { path: "x", type: "symlink" as const, mode: 0o777, linkname: "d/\u00df/d/\u00df/../../../.." }
+    ];
+    await expect(p.provision(req({ artifact: { entries } }))).rejects.toThrow(/non-ASCII/);
+    expect(readdirSync(base)).toEqual([]);
     expect(lima.calls().some((c) => c.startsWith("start"))).toBe(false);
   });
 

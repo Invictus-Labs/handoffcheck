@@ -1,4 +1,4 @@
-import { CONNECTION_STRING, CONTEXT_REDACTIONS, CREDENTIAL_PATTERNS, SYNTHETIC_MARKER } from "./patterns.js";
+import { CONNECTION_STRING, CONTEXT_REDACTIONS, CREDENTIAL_PATTERNS, SYNTHETIC_MARKER, boundedReplace } from "./patterns.js";
 
 const MIN_LITERAL = 4;
 
@@ -50,22 +50,26 @@ export class Redactor {
         text = parts.join("[REDACTED:declared-secret]");
       }
     }
+    // every pattern runs through the window-bounded scanner (regex-DoS safety on untrusted output, see patterns.ts)
     for (const p of CREDENTIAL_PATTERNS) {
-      text = text.replace(new RegExp(p.re.source, p.re.flags), () => {
+      text = boundedReplace(text, p.re, () => {
         count += 1;
         return `[REDACTED:${p.kind}]`;
       });
     }
-    text = text.replace(new RegExp(CONNECTION_STRING.source, CONNECTION_STRING.flags), (full, user: string, pw: string, host: string) => {
+    text = boundedReplace(text, CONNECTION_STRING, (m) => {
+      const full = m[0];
+      const user = m[1] as string;
+      const pw = m[2] as string;
+      const host = m[3] as string;
       if (pw.startsWith("[REDACTED:")) return full;
       count += 1;
       const scheme = full.slice(0, full.indexOf("://") + 3);
       return `${scheme}${user}:[REDACTED:connection-string-password]@${host}`;
     });
     for (const p of CONTEXT_REDACTIONS) {
-      text = text.replace(new RegExp(p.re.source, p.re.flags), (...args: unknown[]) => {
-        const m = args.slice(0, -2) as string[];
-        const full = m[0] as string;
+      text = boundedReplace(text, p.re, (m) => {
+        const full = m[0];
         const secret = p.group ? (m[p.group] as string) : full;
         if (secret.startsWith("[REDACTED:")) return full;
         count += 1;

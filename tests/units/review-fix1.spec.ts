@@ -6,6 +6,9 @@ import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as api from "../../src/api.js";
+import { loadInputs } from "../../src/domain/inputs.js";
+import { DEFAULT_LIMITS } from "../../src/domain/types.js";
+import { runPreflight } from "../../src/security/preflight.js";
 import { PLANTED, makeCtx, prepareDrill, readFixtureScript, sh } from "../helpers/drill.js";
 import { forgeBundle } from "../helpers/bundle.js";
 import { expectRed, runDrill, stepLogs, stepOf } from "../helpers/run.js";
@@ -484,6 +487,25 @@ describe("P3: smaller hardening", () => {
     const report = await api.preflight(makeCtx(), { ...inputs.bare, allowHostSandbox: true });
     expect(report.status).toBe("REJECTED");
     expect(report.findings.map((f) => f.code)).toContain("PRODUCTION_CREDENTIAL");
+  });
+
+  it("negative control: artifact content past the credential-scan limits is reported (warn), never a silent pass", async () => {
+    const key = ["AK", "IA", "Q3EGQ5ZXJ4W7RMNB"].join("");
+    // per-file limit: the key sits after the first MiB of a text file
+    const big = `${"x".repeat(1024 * 1024 + 16)}\n${key}\n`;
+    const inputs = prepareDrill({ extra: [{ path: "data/big.txt", data: big }] });
+    const report = await api.preflight(makeCtx(), { ...inputs.bare, allowHostSandbox: true });
+    const partial = report.findings.filter((f) => f.code === "ARTIFACT_SCAN_PARTIAL");
+    expect(partial).toHaveLength(1);
+    expect(partial[0]?.severity).toBe("warn");
+    expect(partial[0]?.message).not.toContain(key);
+    // total budget: with a tiny budget later files are skipped and counted
+    const small = prepareDrill({ extra: [{ path: "data/a.txt", data: "a".repeat(64) }, { path: "data/b.txt", data: "b".repeat(64) }] });
+    const loaded = loadInputs(small.bare, DEFAULT_LIMITS);
+    const limited = runPreflight(loaded, { name: "local-sandbox", isolation: "none", allowHostSandbox: true }, 1);
+    expect(limited.findings.find((f) => f.code === "ARTIFACT_SCAN_PARTIAL")?.message).toMatch(/^\d+ artifact file\(s\) were not fully scanned/);
+    const full = runPreflight(loaded, { name: "local-sandbox", isolation: "none", allowHostSandbox: true });
+    expect(full.findings.map((f) => f.code)).not.toContain("ARTIFACT_SCAN_PARTIAL");
   });
 
   it("verify-bundle says what it proves: integrity only, provenance not verified", async () => {
